@@ -1,0 +1,19 @@
+[package]
+name = "webviewrs"
+version = "0.1.0"
+edition = "2021"
+description = "Simple webview app that opens URLs in a minimal native window"
+authors = ["Chris Birch"]
+repository = "https://github.com/datapointchris/webviewrs"
+license = "MIT"
+keywords = ["webview", "webkit", "desktop", "webapp"]
+categories = ["gui"]
+
+[dependencies]
+wry = "0.50"
+tao = "0.32"
+clap = { version = "4", features = ["derive"] }
+dirs = "6"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = "0.18"
