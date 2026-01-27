@@ -14,6 +14,7 @@ wry = "0.50"
 tao = "0.32"
 clap = { version = "4", features = ["derive"] }
 dirs = "6"
+open = "5"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "0.18"

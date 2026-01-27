@@ -146,7 +146,11 @@ fn main() {
         .expect("Failed to create window");
 
     let mut builder = WebViewBuilder::with_web_context(&mut web_context)
-        .with_url(&args.url);
+        .with_url(&args.url)
+        .with_new_window_req_handler(|url| {
+            let _ = open::that(&url);
+            false
+        });
 
     // Force dark mode if requested
     if args.dark {
