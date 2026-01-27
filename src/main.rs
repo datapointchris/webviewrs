@@ -1,9 +1,12 @@
+use std::io::{Read, Write};
+use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
+use std::thread;
 
 use clap::Parser;
 use tao::{
     event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
+    event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy},
     window::WindowBuilder,
 };
 use wry::{WebContext, WebViewBuilder};
@@ -56,7 +59,47 @@ fn get_data_dir(name: &str) -> PathBuf {
     base.join(sanitize_name(name))
 }
 
-fn main() -> wry::Result<()> {
+/// Get the socket path for single-instance communication
+fn get_socket_path(data_dir: &PathBuf) -> PathBuf {
+    data_dir.join("instance.sock")
+}
+
+/// Custom event for the event loop
+#[derive(Debug, Clone)]
+enum UserEvent {
+    FocusWindow,
+}
+
+/// Try to connect to an existing instance and request focus
+fn try_focus_existing(socket_path: &PathBuf) -> bool {
+    if let Ok(mut stream) = UnixStream::connect(socket_path) {
+        let _ = stream.write_all(b"focus");
+        true
+    } else {
+        false
+    }
+}
+
+/// Start listening for focus requests from other instances
+fn start_instance_listener(socket_path: PathBuf, proxy: EventLoopProxy<UserEvent>) {
+    // Remove stale socket file if it exists
+    let _ = std::fs::remove_file(&socket_path);
+
+    thread::spawn(move || {
+        if let Ok(listener) = UnixListener::bind(&socket_path) {
+            for stream in listener.incoming() {
+                if let Ok(mut stream) = stream {
+                    let mut buf = [0u8; 5];
+                    if stream.read(&mut buf).is_ok() && &buf == b"focus" {
+                        let _ = proxy.send_event(UserEvent::FocusWindow);
+                    }
+                }
+            }
+        }
+    });
+}
+
+fn main() {
     let args = Args::parse();
 
     let title = args.title.unwrap_or_else(|| args.url.clone());
@@ -65,6 +108,14 @@ fn main() -> wry::Result<()> {
 
     // Ensure data directory exists
     std::fs::create_dir_all(&data_dir).expect("Failed to create data directory");
+
+    let socket_path = get_socket_path(&data_dir);
+
+    // Check if another instance is running
+    if try_focus_existing(&socket_path) {
+        println!("Focused existing instance");
+        return;
+    }
 
     // Initialize GTK (required on Linux before creating WebContext)
     #[cfg(target_os = "linux")]
@@ -82,7 +133,12 @@ fn main() -> wry::Result<()> {
     // Create web context with persistent data directory
     let mut web_context = WebContext::new(Some(data_dir));
 
-    let event_loop = EventLoop::new();
+    let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
+    let proxy = event_loop.create_proxy();
+
+    // Start listening for other instances
+    start_instance_listener(socket_path.clone(), proxy);
+
     let window = WindowBuilder::new()
         .with_title(&title)
         .with_inner_size(tao::dpi::LogicalSize::new(args.width, args.height))
@@ -118,7 +174,7 @@ fn main() -> wry::Result<()> {
         target_os = "ios",
         target_os = "android"
     ))]
-    let _webview = builder.build(&window)?;
+    let _webview = builder.build(&window).expect("Failed to build webview");
 
     #[cfg(not(any(
         target_os = "windows",
@@ -130,18 +186,27 @@ fn main() -> wry::Result<()> {
         use tao::platform::unix::WindowExtUnix;
         use wry::WebViewBuilderExtUnix;
         let vbox = window.default_vbox().unwrap();
-        builder.build_gtk(vbox)?
+        builder.build_gtk(vbox).expect("Failed to build webview")
     };
+
+    // Clean up socket on exit
+    let socket_path_cleanup = socket_path.clone();
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
 
-        if let Event::WindowEvent {
-            event: WindowEvent::CloseRequested,
-            ..
-        } = event
-        {
-            *control_flow = ControlFlow::Exit;
+        match event {
+            Event::UserEvent(UserEvent::FocusWindow) => {
+                window.set_focus();
+            }
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            } => {
+                let _ = std::fs::remove_file(&socket_path_cleanup);
+                *control_flow = ControlFlow::Exit;
+            }
+            _ => {}
         }
     });
 }
