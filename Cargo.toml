@@ -18,3 +18,8 @@ open = "5"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "0.18"
+
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ version }-{ target }.tar.gz"
+pkg-fmt = "tgz"
+bin-dir = "{ name }"
