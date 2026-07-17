@@ -1,6 +1,6 @@
 use std::io::{Read, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::thread;
 
 use clap::Parser;
@@ -45,7 +45,13 @@ struct Args {
 /// Sanitize a string to be safe for use as a directory name
 fn sanitize_name(s: &str) -> String {
     s.chars()
-        .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect::<String>()
         .trim_matches('_')
         .to_lowercase()
@@ -60,7 +66,7 @@ fn get_data_dir(name: &str) -> PathBuf {
 }
 
 /// Get the socket path for single-instance communication
-fn get_socket_path(data_dir: &PathBuf) -> PathBuf {
+fn get_socket_path(data_dir: &Path) -> PathBuf {
     data_dir.join("instance.sock")
 }
 
@@ -71,7 +77,7 @@ enum UserEvent {
 }
 
 /// Try to connect to an existing instance and request focus
-fn try_focus_existing(socket_path: &PathBuf) -> bool {
+fn try_focus_existing(socket_path: &Path) -> bool {
     if let Ok(mut stream) = UnixStream::connect(socket_path) {
         let _ = stream.write_all(b"focus");
         true
@@ -87,12 +93,10 @@ fn start_instance_listener(socket_path: PathBuf, proxy: EventLoopProxy<UserEvent
 
     thread::spawn(move || {
         if let Ok(listener) = UnixListener::bind(&socket_path) {
-            for stream in listener.incoming() {
-                if let Ok(mut stream) = stream {
-                    let mut buf = [0u8; 5];
-                    if stream.read(&mut buf).is_ok() && &buf == b"focus" {
-                        let _ = proxy.send_event(UserEvent::FocusWindow);
-                    }
+            for mut stream in listener.incoming().flatten() {
+                let mut buf = [0u8; 5];
+                if stream.read(&mut buf).is_ok() && &buf == b"focus" {
+                    let _ = proxy.send_event(UserEvent::FocusWindow);
                 }
             }
         }
