@@ -16,6 +16,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
+      # > custom:before:rust - WebKitGTK development headers
+      #
+      # wry and tao link against system WebKitGTK, which the runner image does
+      # not carry, so every cargo step here fails in glib-sys's build script
+      # without this. Same package set as release.yml, which builds the same
+      # crate for the same target.
+      - name: install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
       - uses: actions/checkout@v7
 
       # generated:rust
