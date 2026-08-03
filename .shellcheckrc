@@ -1,0 +1,19 @@
+# Deployed as .shellcheckrc.
+#
+# Both settings give shellcheck information rather than taking findings away.
+# The disables this replaced — SC2155, SC1091, SC1090 in font and theme — hid
+# six real SC2155s per repo: `local x=$(cmd)` masks the command's exit status
+# behind local's own, so a failure reads as success.
+#
+# Never add a `disable=` line here. A source shellcheck genuinely cannot follow
+# (a system file, an installed path outside the repo) takes a per-line
+# `# shellcheck source=/dev/null` at the site, which stays scoped to the one
+# thing that is actually unresolvable.
+
+# Follow a sourced file instead of reporting SC1091 and checking nothing in it.
+external-sources=true
+
+# Resolve a `source=` directive against the sourcing file rather than the
+# working directory, so tests/ can name ../lib/x.sh and lint identically from
+# anywhere. Without it the same file passes or fails depending on the cwd.
+source-path=SCRIPTDIR

@@ -1,0 +1,60 @@
+# Deployed as .editorconfig.
+#
+# This is where shell formatting is defined, not the shfmt hook. shfmt treats a
+# parser or printer flag as a replacement for this file rather than an addition
+# to it: a single `--indent 2` on the hook would discard switch_case_indent and
+# binary_next_line along with it. Output flags (--write, --diff) are safe.
+#
+# The shell keys sit under [*] rather than [*.sh] because the fleet keeps
+# executables with no extension — bin/font, dotfiles/apps/common/menu,
+# theme/themes/*/bordersrc, ichrisbirch/ops/db. A suffix pattern misses those,
+# and an unmatched file is not skipped: shfmt falls back to tab indentation and
+# reformats it wrongly. shfmt only reads these for files it identifies as shell,
+# so [*] costs nothing there. The per-language sections below exist because
+# editors, unlike shfmt, read [*] for every file.
+#
+# indent_size, switch_case_indent and binary_next_line are shfmt's -i 2 -ci -bn,
+# which the shfmt manual gives as its approximation of the Google Shell Style
+# Guide. Google specifies all three: two-space indent, case alternatives
+# indented, and a split pipeline carrying `|`, `||` and `&&` at the start of the
+# continuation line rather than the end of the previous one.
+#
+# space_redirects is deliberately absent, leaving shfmt's default of `>file`.
+# Google's guide does not rule on redirect spacing, and overriding a formatter's
+# considered default with no standard behind it is config that cannot be
+# justified later.
+#
+# simplify is likewise absent, and is not a formatting option: it rewrites
+# `${var}` to `$var`, which Google's guide explicitly argues against.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+switch_case_indent = true
+binary_next_line = true
+
+# gofmt is not configurable and emits tabs.
+[*.go]
+indent_style = tab
+
+# PEP 8, and the default both ruff-format and rustfmt apply.
+[*.{py,rs}]
+indent_size = 4
+
+# Inherits indent_size = 2 to agree with markdownlint's MD007, which the shared
+# markdownlint.json leaves at its 2-space default via "default": true.
+# trim_trailing_whitespace matches the trailing-whitespace hook's
+# --markdown-linebreak-ext=md, which preserves the two-space line break; an
+# editor and the hook must not undo each other.
+[*.md]
+trim_trailing_whitespace = false
+
+# make requires a literal tab before every recipe line.
+[Makefile]
+indent_style = tab

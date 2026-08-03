@@ -1,3 +1,4 @@
+# forge-toolchain: 11
 fail_fast: true
 default_stages: [pre-commit]
 repos:
@@ -10,11 +11,28 @@ repos:
         stages: [commit-msg]
         args: [--strict]
 
+# generated:commit-branding - Strip AI branding from commit messages
+  - repo: local
+    hooks:
+      - id: prepare-commit-msg
+        name: Strip AI branding from commits
+        # $HOME, not a literal path: pre-commit execs entry without a shell, and
+        # the same repo is committed from both /Users/chris and /home/chris.
+        entry: bash -c 'exec "$HOME/.claude/hooks/prepare-commit-msg" "$@"' --
+        language: system
+        always_run: true
+        stages: [prepare-commit-msg]
+
 # generated:file-checks - File format and basic checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
+      # --unsafe parses instead of safe_load'ing. Every mkdocs-material repo
+      # carries `!!python/name:material.extensions.emoji.twemoji`, which
+      # safe_load can never construct — five repos fail this hook without it.
+      # The alternative is excluding mkdocs.yml, which checks strictly less.
       - id: check-yaml
+        args: [--unsafe]
       - id: check-toml
       - id: check-json
       - id: end-of-file-fixer
@@ -43,10 +61,48 @@ repos:
         args: [--fix]
 
 # generated:shell - Shell
+  #
+  # exclude_types: [zsh] on both tools. Neither supports zsh, and neither says
+  # so — shellcheck lints a .zshrc as bash and reports nothing, while shfmt
+  # reformats it under bash rules: on dotfiles it rewrote `>&2 }` to `>&2; }`,
+  # correct for bash and unnecessary in zsh. Both were silently out of contract,
+  # which is worse than either erroring. identify already tags these files zsh,
+  # so this is the native exclusion rather than a path regex that would have to
+  # enumerate .zshrc, .zprofile, .zlogin and the rest.
   - repo: https://github.com/koalaman/shellcheck-precommit
     rev: v0.10.0
     hooks:
       - id: shellcheck
+        exclude_types: [zsh]
+
+  # shfmt has no pre-commit hooks file of its own, so this is the repo shfmt's
+  # README points at. Its `shfmt` id runs the prebuilt upstream binary, which
+  # keeps the hook off a Go toolchain; `shfmt-src` is the one that needs Go.
+  #
+  # No formatting args on purpose. A parser or printer flag does not merge with
+  # .editorconfig — it discards the file wholesale, so adding `--indent 2` here
+  # would silently drop switch_case_indent and binary_next_line along with it.
+  # Output flags (--write, --diff) are safe. .editorconfig is the style.
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.13.1-1
+    hooks:
+      - id: shfmt
+        exclude_types: [zsh]
+
+  # bats ships no hook repo of its own, so this one is local.
+  #
+  # The guard distinguishes "this repo has no tests" from "this repo has tests
+  # and bats is missing". Only the first is allowed to pass: a bare `bats
+  # tests/` under language: system would be the second hook in this portfolio to
+  # report success because its tool was absent, which is how font accumulated
+  # seven shellcheck findings behind a green hook.
+  - repo: local
+    hooks:
+      - id: bats
+        name: bats
+        entry: bash -c 'compgen -G "tests/*.bats" > /dev/null || exit 0; exec bats tests/'
+        language: system
+        pass_filenames: false
 
 # generated:codespell - Spell checking
   - repo: https://github.com/codespell-project/codespell
@@ -69,12 +125,6 @@ repos:
         language: system
         types: [rust]
         pass_filenames: false
-
-# generated:lua - Lua
-  - repo: https://github.com/JohnnyMorganz/StyLua
-    rev: v2.5.2
-    hooks:
-      - id: stylua-github
 
 # generated:github-actions - GitHub Actions
   - repo: https://github.com/rhysd/actionlint
