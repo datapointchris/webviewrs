@@ -34,7 +34,12 @@ repos:
       - id: check-yaml
         args: [--unsafe]
       - id: check-toml
+      # tsconfig.json is JSONC — TypeScript documents comments in it, and the
+      # generated one ships with them, so a strict JSON parser is the wrong
+      # tool rather than the file being wrong. check-json5 below still parses
+      # it, so nothing is unchecked.
       - id: check-json
+        exclude: '(^|/)tsconfig(\..*)?\.json$'
       - id: end-of-file-fixer
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
@@ -108,7 +113,17 @@ repos:
   - repo: https://github.com/codespell-project/codespell
     rev: v2.4.1
     hooks:
+      # Lock files are generated and mostly integrity hashes, so a base64
+      # fragment reads as a typo — two of timeline's package-lock.json hashes
+      # each contained a two-letter sequence codespell corrects. Nobody writes
+      # prose in them and nobody would fix a hit, since the next install would
+      # put it back.
       - id: codespell
+        # The second alternation is sops output. Ciphertext is base64, so it
+        # produces the same false hits a lock file's hashes do, and the plain
+        # name covers homelab's group_data/secrets.yaml as well as the
+        # *.enc.env convention.
+        exclude: '(^|/)(.*-lock\.json|.*\.lock|uv\.lock|package-lock\.json|go\.sum|secrets?[^/]*\.(ya?ml|env|json)|.*\.enc\.[^/]+)$'
 
 # generated:rust - Rust
   - repo: local
