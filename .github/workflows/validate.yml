@@ -16,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
+      - uses: actions/checkout@v7
+
       # > custom:before:rust - WebKitGTK development headers
       #
       # wry and tao link against system WebKitGTK, which the runner image does
@@ -30,8 +32,6 @@ jobs:
             libgtk-3-dev \
             libayatana-appindicator3-dev \
             librsvg2-dev
-
-      - uses: actions/checkout@v7
 
       # generated:rust
       # The toolchain ships with the runner image; rust-toolchain.toml, if the
