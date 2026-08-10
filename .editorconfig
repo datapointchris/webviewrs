@@ -6,7 +6,7 @@
 # binary_next_line along with it. Output flags (--write, --diff) are safe.
 #
 # The shell keys sit under [*] rather than [*.sh] because the fleet keeps
-# executables with no extension — bin/font, dotfiles/apps/common/menu,
+# executables with no extension — bin/font, dotfiles/apps/common/tool-usage,
 # theme/themes/*/bordersrc, ichrisbirch/ops/db. A suffix pattern misses those,
 # and an unmatched file is not skipped: shfmt falls back to tab indentation and
 # reformats it wrongly. shfmt only reads these for files it identifies as shell,

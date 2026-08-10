@@ -1,4 +1,4 @@
-# forge-toolchain: 11
+# forge-toolchain: 14
 fail_fast: true
 default_stages: [pre-commit]
 repos:
@@ -124,6 +124,32 @@ repos:
         # name covers homelab's group_data/secrets.yaml as well as the
         # *.enc.env convention.
         exclude: '(^|/)(.*-lock\.json|.*\.lock|uv\.lock|package-lock\.json|go\.sum|secrets?[^/]*\.(ya?ml|env|json)|.*\.enc\.[^/]+)$'
+
+# generated:refcheck - Reference checking
+  #
+  # `--moves` is what earns this a place on every commit, and running without
+  # it would be close to running nothing. Measured across all 49 active repos:
+  # the whole-tree half — every `source` and `bash` target — found zero real
+  # errors, because the portfolio is already clean. The moves half asks the
+  # question a rename actually leaves behind, for each one in the changeset,
+  # and that is where the findings were: three live `uv run cli/log_viewer.py`
+  # call sites in ichrisbirch's ops tool pointing at a file that moved to
+  # ops/, and a documented build command in shadows naming a cmd/ directory
+  # that no longer exists.
+  #
+  # Generic rather than shell-gated, because a pattern is language-agnostic:
+  # the hits landed in Go, Vue and Python repos as readily as in dotfiles, in
+  # YAML and prose as readily as in scripts. The compiled languages catch their
+  # own broken *imports*, which is a different question from what a doc, a
+  # Dockerfile or a shell wrapper still says.
+  #
+  # No --strict: one advisory warning across the whole fleet, and a warning is
+  # about fragility rather than breakage.
+  - repo: https://github.com/datapointchris/refcheck
+    rev: v0.5.0
+    hooks:
+      - id: refcheck
+        args: [--moves]
 
 # generated:rust - Rust
   - repo: local
