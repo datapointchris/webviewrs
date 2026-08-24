@@ -45,13 +45,7 @@ struct Args {
 /// Sanitize a string to be safe for use as a directory name
 fn sanitize_name(s: &str) -> String {
     s.chars()
-        .map(|c| {
-            if c.is_alphanumeric() || c == '-' || c == '_' {
-                c
-            } else {
-                '_'
-            }
-        })
+        .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
         .collect::<String>()
         .trim_matches('_')
         .to_lowercase()
@@ -59,9 +53,7 @@ fn sanitize_name(s: &str) -> String {
 
 /// Get the data directory for persistent storage
 fn get_data_dir(name: &str) -> PathBuf {
-    let base = dirs::data_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("webviewrs");
+    let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from(".")).join("webviewrs");
     base.join(sanitize_name(name))
 }
 
@@ -176,20 +168,10 @@ fn main() {
         );
     }
 
-    #[cfg(any(
-        target_os = "windows",
-        target_os = "macos",
-        target_os = "ios",
-        target_os = "android"
-    ))]
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "ios", target_os = "android"))]
     let _webview = builder.build(&window).expect("Failed to build webview");
 
-    #[cfg(not(any(
-        target_os = "windows",
-        target_os = "macos",
-        target_os = "ios",
-        target_os = "android"
-    )))]
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "ios", target_os = "android")))]
     let _webview = {
         use tao::platform::unix::WindowExtUnix;
         use wry::WebViewBuilderExtUnix;
