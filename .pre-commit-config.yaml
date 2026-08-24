@@ -1,4 +1,4 @@
-# forge-toolchain: 14
+# forge-toolchain: 18
 fail_fast: true
 default_stages: [pre-commit]
 repos:
@@ -123,7 +123,15 @@ repos:
         # produces the same false hits a lock file's hashes do, and the plain
         # name covers homelab's group_data/secrets.yaml as well as the
         # *.enc.env convention.
-        exclude: '(^|/)(.*-lock\.json|.*\.lock|uv\.lock|package-lock\.json|go\.sum|secrets?[^/]*\.(ya?ml|env|json)|.*\.enc\.[^/]+)$'
+        #
+        # `go.mod` sits beside `go.sum` for the same reason one step earlier: it
+        # is mostly module paths, and a path is a third party's name rather than
+        # prose anyone here can correct. Adding sqlc to fleet pulled in a
+        # `sqlc-dev` module whose name codespell wants hyphenated, and no edit
+        # could fix it — the next `go mod tidy` writes it straight back. Naming
+        # it here would trip this hook on this very file, which is how the rule
+        # was found.
+        exclude: '(^|/)(.*-lock\.json|.*\.lock|uv\.lock|package-lock\.json|go\.sum|go\.mod|secrets?[^/]*\.(ya?ml|env|json)|.*\.enc\.[^/]+)$'
 
 # generated:refcheck - Reference checking
   #
@@ -132,10 +140,13 @@ repos:
   # the whole-tree half — every `source` and `bash` target — found zero real
   # errors, because the portfolio is already clean. The moves half asks the
   # question a rename actually leaves behind, for each one in the changeset,
-  # and that is where the findings were: three live `uv run cli/log_viewer.py`
-  # call sites in ichrisbirch's ops tool pointing at a file that moved to
-  # ops/, and a documented build command in shadows naming a cmd/ directory
-  # that no longer exists.
+  # and that is where the findings were: three live `uv run` call sites in
+  # ichrisbirch's ops tool naming a log viewer that had moved months earlier,
+  # and a documented build command in shadows pointing into a directory the
+  # repo no longer has.
+  #
+  # Deliberately no path spelled out above. A comment naming a real old path
+  # is itself a hit for it, in every repo this block is deployed to.
   #
   # Generic rather than shell-gated, because a pattern is language-agnostic:
   # the hits landed in Go, Vue and Python repos as readily as in dotfiles, in
@@ -146,7 +157,7 @@ repos:
   # No --strict: one advisory warning across the whole fleet, and a warning is
   # about fragility rather than breakage.
   - repo: https://github.com/datapointchris/refcheck
-    rev: v0.5.0
+    rev: v0.6.0
     hooks:
       - id: refcheck
         args: [--moves]
