@@ -11,18 +11,6 @@ repos:
         stages: [commit-msg]
         args: [--strict]
 
-# generated:commit-branding - Strip AI branding from commit messages
-  - repo: local
-    hooks:
-      - id: prepare-commit-msg
-        name: Strip AI branding from commits
-        # $HOME, not a literal path: pre-commit execs entry without a shell, and
-        # the same repo is committed from both /Users/chris and /home/chris.
-        entry: bash -c 'exec "$HOME/.claude/hooks/prepare-commit-msg" "$@"' --
-        language: system
-        always_run: true
-        stages: [prepare-commit-msg]
-
 # generated:file-checks - File format and basic checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
