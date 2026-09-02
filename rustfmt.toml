@@ -1,3 +1,5 @@
+# forge-managed
+#
 # Only these options apply on stable rustfmt. imports_granularity, group_imports,
 # wrap_comments and the rest are nightly-only: stable prints "can't set X, unstable
 # features are only available in nightly channel" to stderr and exits 0, so a
