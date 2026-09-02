@@ -1,0 +1,36 @@
+# forge-managed
+#
+# Deployed as .markdownlint.yaml.
+#
+# YAML rather than JSON so the file can carry the marker on its first line. JSON
+# has no comment syntax, and markdownlint reads either spelling — including at
+# the rev the markdown block pins.
+#
+# markdownlint prefers .markdownlint.json when both are present, so a repo still
+# holding the JSON spelling has it removed in the same run that writes this one.
+
+default: true
+
+# Line length. Prose here is wrapped for the editor, not for a linter, and a
+# rule that fires on a long URL costs more than it finds.
+MD013: false
+
+# Duplicate headings, siblings only. A document with repeated subsections under
+# different parents is ordinary; two identical headings under one parent is not.
+MD024:
+  siblings_only: true
+
+# Inline HTML. Markdown that needs a <details> block or an anchor needs it.
+MD033: false
+
+# Emphasis used instead of a heading. Deliberate in short documents that want a
+# bold run-in without adding a level to the outline.
+MD036: false
+
+# Spaces inside code span markers. Fires on a code span whose content is a
+# literal space, which is a legitimate thing to write.
+MD038: false
+
+# Code block style. Both fenced and indented blocks appear in these repos and
+# neither is wrong.
+MD046: false

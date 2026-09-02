@@ -1,3 +1,5 @@
+# forge-managed
+#
 # Deployed as .shellcheckrc.
 #
 # SC1091/SC1090 are off everywhere this file is deployed. A source through a

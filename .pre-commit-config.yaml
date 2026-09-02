@@ -57,9 +57,9 @@ repos:
   #
   # exclude_types: [zsh] on both tools. Neither supports zsh, and neither says
   # so — shellcheck lints a .zshrc as bash and reports nothing, while shfmt
-  # reformats it under bash rules: on dotfiles it rewrote `>&2 }` to `>&2; }`,
-  # correct for bash and unnecessary in zsh. Both were silently out of contract,
-  # which is worse than either erroring. identify already tags these files zsh,
+  # reformats it under bash rules, rewriting `>&2 }` to `>&2; }` — correct for
+  # bash and unnecessary in zsh. Both were silently out of contract, which is
+  # worse than either erroring. identify already tags these files zsh,
   # so this is the native exclusion rather than a path regex that would have to
   # enumerate .zshrc, .zprofile, .zlogin and the rest.
   - repo: https://github.com/koalaman/shellcheck-precommit
@@ -86,9 +86,9 @@ repos:
   #
   # The guard distinguishes "this repo has no tests" from "this repo has tests
   # and bats is missing". Only the first is allowed to pass: a bare `bats
-  # tests/` under language: system would be the second hook in this portfolio to
-  # report success because its tool was absent, which is how font accumulated
-  # seven shellcheck findings behind a green hook.
+  # tests/` under language: system would be the second hook here to report
+  # success because its tool was absent. The first hid seven shellcheck
+  # findings behind a green run.
   - repo: local
     hooks:
       - id: bats
@@ -102,10 +102,9 @@ repos:
     rev: v2.4.1
     hooks:
       # Lock files are generated and mostly integrity hashes, so a base64
-      # fragment reads as a typo — two of timeline's package-lock.json hashes
-      # each contained a two-letter sequence codespell corrects. Nobody writes
-      # prose in them and nobody would fix a hit, since the next install would
-      # put it back.
+      # fragment reads as a typo — a package-lock.json hash can contain a
+      # two-letter sequence codespell corrects. Nobody writes prose in them and
+      # nobody would fix a hit, since the next install would put it back.
       - id: codespell
         # The second alternation is sops output. Ciphertext is base64, so it
         # produces the same false hits a lock file's hashes do. The plain
@@ -132,10 +131,10 @@ repos:
   # is itself a hit for it, in every repo this block is deployed to.
   #
   # Generic rather than shell-gated, because a pattern is language-agnostic:
-  # the hits landed in Go, Vue and Python repos as readily as in dotfiles, in
-  # YAML and prose as readily as in scripts. The compiled languages catch their
-  # own broken *imports*, which is a different question from what a doc, a
-  # Dockerfile or a shell wrapper still says.
+  # the hits land in Go, Vue and Python repos alike, in YAML and prose as
+  # readily as in scripts. The compiled languages catch their own broken
+  # *imports*, which is a different question from what a doc, a Dockerfile or a
+  # shell wrapper still says.
   #
   # No --strict: one advisory warning across every repo, and a warning is
   # about fragility rather than breakage.
