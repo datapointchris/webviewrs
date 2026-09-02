@@ -1,4 +1,4 @@
-# forge-toolchain: 19
+# forge-toolchain: 20
 fail_fast: true
 default_stages: [pre-commit]
 repos:
@@ -108,30 +108,25 @@ repos:
       # put it back.
       - id: codespell
         # The second alternation is sops output. Ciphertext is base64, so it
-        # produces the same false hits a lock file's hashes do, and the plain
-        # name covers homelab's group_data/secrets.yaml as well as the
-        # *.enc.env convention.
+        # produces the same false hits a lock file's hashes do. The plain
+        # `secrets.yaml` name is covered alongside the *.enc.env convention.
         #
         # `go.mod` sits beside `go.sum` for the same reason one step earlier: it
         # is mostly module paths, and a path is a third party's name rather than
-        # prose anyone here can correct. Adding sqlc to fleet pulled in a
-        # `sqlc-dev` module whose name codespell wants hyphenated, and no edit
-        # could fix it — the next `go mod tidy` writes it straight back. Naming
-        # it here would trip this hook on this very file, which is how the rule
-        # was found.
+        # prose anyone here can correct. A transitive dependency can carry a
+        # module name codespell wants spelled differently, and no edit fixes it —
+        # the next `go mod tidy` writes it straight back. Naming such a module
+        # here would trip this hook on this very file.
         exclude: '(^|/)(.*-lock\.json|.*\.lock|uv\.lock|package-lock\.json|go\.sum|go\.mod|secrets?[^/]*\.(ya?ml|env|json)|.*\.enc\.[^/]+)$'
 
 # generated:refcheck - Reference checking
   #
   # `--moves` is what earns this a place on every commit, and running without
-  # it would be close to running nothing. Measured across all 49 active repos:
-  # the whole-tree half — every `source` and `bash` target — found zero real
-  # errors, because the portfolio is already clean. The moves half asks the
-  # question a rename actually leaves behind, for each one in the changeset,
-  # and that is where the findings were: three live `uv run` call sites in
-  # ichrisbirch's ops tool naming a log viewer that had moved months earlier,
-  # and a documented build command in shadows pointing into a directory the
-  # repo no longer has.
+  # it would be close to running nothing. The whole-tree half — every `source`
+  # and `bash` target — finds nothing on a tree that is already clean, which is
+  # the normal state. The moves half asks the question a rename actually leaves
+  # behind, for each one in the changeset, and that is where the findings are:
+  # call sites and documented commands still naming a path that moved.
   #
   # Deliberately no path spelled out above. A comment naming a real old path
   # is itself a hit for it, in every repo this block is deployed to.
@@ -142,7 +137,7 @@ repos:
   # own broken *imports*, which is a different question from what a doc, a
   # Dockerfile or a shell wrapper still says.
   #
-  # No --strict: one advisory warning across the whole fleet, and a warning is
+  # No --strict: one advisory warning across every repo, and a warning is
   # about fragility rather than breakage.
   - repo: https://github.com/datapointchris/refcheck
     rev: v0.6.0

@@ -1,17 +1,16 @@
 # Deployed as .shellcheckrc.
 #
-# SC1091/SC1090 are off fleet-wide. A source through a variable or an installed
-# path cannot be resolved, and following one that can be resolved has never
-# produced a finding: measured over 295 shell files, source-following yields
-# nothing that not following it misses. Its only effect was `# shellcheck
-# source=` directives written to silence it, each a hardcoded path that rots
-# when the file moves.
+# SC1091/SC1090 are off everywhere this file is deployed. A source through a
+# variable or an installed path cannot be resolved, and following one that can be
+# resolved yields nothing that not following it misses. Its only effect was
+# `# shellcheck source=` directives written to silence it, each a hardcoded path
+# that rots when the file moves.
 #
 # Nothing else gets a `disable=` line here — it is copied to every repo, so a
-# disable written here turns a rule off fleet-wide to satisfy one caller. A repo
-# needing an exception declares toolchain.shellcheck_disable in the registry with
-# the reason attached, and the sync die appends it below this block. homelab is
-# the standing example: SC2029 on 53 deliberate ssh interpolations.
+# disable written here turns a rule off in all of them to satisfy one caller. A
+# repo needing an exception declares one with the reason attached, and the
+# generator appends it below this block. The standing case is SC2029, where
+# client-side expansion is the mechanism rather than a bug.
 disable=SC1091,SC1090
 
 # Still follow a source when the path resolves, so a variable set in one file and

@@ -2,11 +2,10 @@
 # wrap_comments and the rest are nightly-only: stable prints "can't set X, unstable
 # features are only available in nightly channel" to stderr and exits 0, so a
 # nightly option here reads as configuration and does nothing. Verified on
-# rustfmt 1.9.0-stable, 2026-08-12.
+# rustfmt 1.9.0-stable.
 #
 # max_width is the one line that has to be here. rustfmt defaults to 100 and the
-# fleet is 140, so a repo with no rustfmt.toml is not on the default — it is on a
-# different width from every other stack. standards/ci.md § "140 columns is the
-# fleet width".
+# standard width is 140, so a repo with no rustfmt.toml is not on the default —
+# it is on a different width from every other stack.
 max_width = 140
 edition = "2024"
