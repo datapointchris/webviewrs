@@ -1,4 +1,4 @@
-# forge-toolchain: 20
+# forge-toolchain: 23
 fail_fast: true
 default_stages: [pre-commit]
 repos:
@@ -106,6 +106,34 @@ repos:
       # two-letter sequence codespell corrects. Nobody writes prose in them and
       # nobody would fix a hit, since the next install would put it back.
       - id: codespell
+        # `clear,rare` is codespell's own default and is restated because naming
+        # any dictionary replaces the list rather than adding to it.
+        #
+        # Dialect is deliberately not a dictionary here. A commit is the wrong
+        # place to catch a British spelling: by then the word is written, and the
+        # gate's only move is a sweep of text that already exists. The
+        # `british-spelling` validator in `~/.claude/validators/rules/` reports it
+        # on the line as it is typed, which reaches every repo including ones with
+        # no pre-commit at all, and reaches an identifier, which codespell cannot
+        # — it matches whole tokens, so a file holding a compound like
+        # `<british-word>_override` exits 0 either way.
+        #
+        # `-H` because codespell skips any file whose *basename* starts with a
+        # dot and exits 0 rather than saying it read nothing. Without it this
+        # very file sits outside the check it installs, along with every other
+        # dot-named tracked file. A dot-named *directory* was always read, so
+        # `.github/**` never needed it. pre-commit passes tracked paths, so the
+        # flag widens what is read rather than reaching untracked files.
+        #
+        # `--uri-ignore-words-list=*` stops the check inside a URL, for the
+        # reason the go.mod note below gives: an address is a third party's
+        # name, and respelling one breaks the link rather than fixing a typo.
+        # The word is still checked everywhere outside a URL in the same file,
+        # so this narrows the context rather than switching the word off. The
+        # case that forced it is a security scanner's output captured as a test
+        # fixture, where the finding sits in a vendor's advisory URL and no edit
+        # is available to whoever hits it.
+        args: ['-H', '--builtin', 'clear,rare', '--uri-ignore-words-list=*']
         # The second alternation is sops output. Ciphertext is base64, so it
         # produces the same false hits a lock file's hashes do. The plain
         # `secrets.yaml` name is covered alongside the *.enc.env convention.
@@ -116,7 +144,15 @@ repos:
         # module name codespell wants spelled differently, and no edit fixes it —
         # the next `go mod tidy` writes it straight back. Naming such a module
         # here would trip this hook on this very file.
-        exclude: '(^|/)(.*-lock\.json|.*\.lock|uv\.lock|package-lock\.json|go\.sum|go\.mod|secrets?[^/]*\.(ya?ml|env|json)|.*\.enc\.[^/]+)$'
+        #
+        # A delimited data file holds values that were captured rather than
+        # written, so a hit in one is the record and correcting it edits the
+        # observation. That holds whatever the values are — a scraped comment
+        # carries whatever its author typed, and a name column carries names
+        # nobody may respell — which is why the class is excluded rather than any
+        # one repo's data. `.tsv` is named beside `.csv` as the same format with
+        # a different delimiter.
+        exclude: '(^|/)(.*-lock\.json|.*\.lock|uv\.lock|package-lock\.json|go\.sum|go\.mod|secrets?[^/]*\.(ya?ml|env|json)|.*\.enc\.[^/]+|.*\.[ct]sv)$'
 
 # generated:refcheck - Reference checking
   #
