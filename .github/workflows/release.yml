@@ -9,6 +9,13 @@ permissions:
   issues: write
   pull-requests: write
 
+# Two pushes to main inside one run's window would otherwise race, and the later
+# run fails pushing its version bump onto a ref that has already moved.
+# Never cancel-in-progress: a canceled release can leave a tag with no release.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
