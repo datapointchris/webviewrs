@@ -112,11 +112,11 @@ repos:
         # Dialect is deliberately not a dictionary here. A commit is the wrong
         # place to catch a British spelling: by then the word is written, and the
         # gate's only move is a sweep of text that already exists. The
-        # `british-spelling` validator in `~/.claude/validators/rules/` reports it
-        # on the line as it is typed, which reaches every repo including ones with
-        # no pre-commit at all, and reaches an identifier, which codespell cannot
-        # — it matches whole tokens, so a file holding a compound like
-        # `<british-word>_override` exits 0 either way.
+        # `british-spelling` rule reports it on the line as it is typed, which
+        # reaches every repo including ones with no pre-commit at all, and
+        # reaches an identifier, which codespell cannot — it matches whole
+        # tokens, so a file holding a compound like `<british-word>_override`
+        # exits 0 either way.
         #
         # `-H` because codespell skips any file whose *basename* starts with a
         # dot and exits 0 rather than saying it read nothing. Without it this
