@@ -1,4 +1,4 @@
-# forge-toolchain: 24
+# forge-toolchain: 26
 name: CI
 
 on:
@@ -43,3 +43,76 @@ jobs:
       - run: cargo build --all-targets
 
       - run: cargo test
+
+  hooks:
+    runs-on: ubuntu-latest
+    steps:
+
+      - uses: actions/checkout@v7
+
+      # generated:hooks
+      # The hooks no other job in this workflow runs, which forge lists below
+      # from the repo's committed config. A push from a checkout that never ran
+      # `pre-commit install`, or a merge in the web UI, passes every hook by not
+      # running it, and this is the gate that catches both.
+      - uses: astral-sh/setup-uv@v7
+
+      # A self-hosted runner keeps ~/.cache/pre-commit between jobs, so there
+      # the archive is a download of what is already on disk.
+      - uses: actions/cache@v6
+        if: runner.environment == 'github-hosted'
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      # Over what the push or pull request changed, which is what the hooks
+      # would have seen at commit time. --all-files would fail a push on every
+      # finding in a file it never touched, so it is the scope only where no
+      # earlier commit can be fetched, as on a repo's first push.
+      #
+      # The checkout is one commit deep, and diffing needs one more. pre-commit
+      # falls back to a two-dot diff where the two commits share no history on
+      # disk, and refcheck's --moves reads the range as a two-dot diff too, so
+      # the base commit alone is enough.
+      - name: Run the hooks over the change
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -n "$BASE" ] && git fetch --quiet --depth=1 --no-tags origin "$BASE" 2>/dev/null; then
+            scope=(--from-ref "$BASE" --to-ref HEAD)
+          elif git fetch --quiet --depth=2 --no-tags origin "$(git rev-parse HEAD)" &&
+            git rev-parse --quiet --verify HEAD~1 >/dev/null; then
+            echo "::notice::this event names no base commit, so only the head commit's change is checked"
+            scope=(--from-ref HEAD~1 --to-ref HEAD)
+          else
+            echo "::notice::no earlier commit to diff against, so every file is checked"
+            scope=(--all-files)
+          fi
+          hooks=(
+            check-yaml
+            check-toml
+            check-json
+            end-of-file-fixer
+            trailing-whitespace
+            check-executables-have-shebangs
+            check-shebang-scripts-are-executable
+            check-added-large-files
+            check-merge-conflict
+            mixed-line-ending
+            check-case-conflict
+            detect-private-key
+            check-json5
+            markdownlint
+            shellcheck
+            shfmt
+            codespell
+            refcheck
+            actionlint
+          )
+          # Every hook runs whatever the one before it found, so one push
+          # reports every failing hook rather than the first.
+          status=0
+          for hook in "${hooks[@]}"; do
+            uvx pre-commit run "$hook" "${scope[@]}" --show-diff-on-failure || status=1
+          done
+          exit "$status"
