@@ -1,4 +1,4 @@
-# forge-toolchain: 23
+# forge-toolchain: 24
 fail_fast: true
 default_stages: [pre-commit]
 repos:
@@ -175,7 +175,7 @@ repos:
   # No --strict: one advisory warning across every repo, and a warning is
   # about fragility rather than breakage.
   - repo: https://github.com/datapointchris/refcheck
-    rev: v0.6.0
+    rev: v2.2.0
     hooks:
       - id: refcheck
         args: [--moves]
