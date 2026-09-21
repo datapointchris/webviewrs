@@ -1,4 +1,4 @@
-# forge-toolchain: 25
+# forge-toolchain: 26
 fail_fast: true
 default_stages: [pre-commit]
 repos:
@@ -89,11 +89,16 @@ repos:
   # tests/` under language: system would be the second hook here to report
   # success because its tool was absent. The first hid seven shellcheck
   # findings behind a green run.
+  #
+  # The unset clears every variable git reads to find a repository. A commit
+  # from a linked worktree exports GIT_DIR and GIT_INDEX_FILE into each hook,
+  # and GIT_DIR outranks `git -C`, so a test running `git config` in its own
+  # scratch repo writes into the repository being committed instead.
   - repo: local
     hooks:
       - id: bats
         name: bats
-        entry: bash -c 'compgen -G "tests/*.bats" > /dev/null || exit 0; exec bats tests/'
+        entry: bash -c 'unset $(git rev-parse --local-env-vars); compgen -G "tests/*.bats" > /dev/null || exit 0; exec bats tests/'
         language: system
         pass_filenames: false
 

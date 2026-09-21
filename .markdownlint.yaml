@@ -23,6 +23,12 @@ MD024:
 # Inline HTML. Markdown that needs a <details> block or an anchor needs it.
 MD033: false
 
+# First line a top-level heading, or a title in front matter. `name:` counts as
+# a title as well as `title:`, because a skill or agent definition carries its
+# title under that key and opens on no heading.
+MD041:
+  front_matter_title: "^\\s*(title|name)\\s*[:=]"
+
 # Emphasis used instead of a heading. Deliberate in short documents that want a
 # bold run-in without adding a level to the outline.
 MD036: false
