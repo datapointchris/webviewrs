@@ -16,7 +16,8 @@ clap = { version = "4", features = ["derive"] }
 dirs = "6"
 open = "5"
 
-[target.'cfg(target_os = "linux")'.dependencies]
+# wry builds on GTK on exactly these platforms, the set build.rs emits as `gtk`.
+[target.'cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))'.dependencies]
 gtk = "0.18"
 
 [package.metadata.binstall]

@@ -17,18 +17,24 @@ That apt step is copied into every workflow job that compiles the crate.
 them. The publish job needs the packages too, because `cargo publish` builds the packaged crate
 before uploading it.
 
-## Linux takes its own path through `main`
+## Linux and the BSDs take GTK's path through `main`
+
+wry builds its webview on GTK on Linux, DragonFly, FreeBSD, NetBSD and OpenBSD. `build.rs` emits
+those five as the `gtk` cfg, which `main.rs` reads, so a BSD runs the Linux path whole. The `gtk`
+dependency's target table in `Cargo.toml` names them again, because Cargo reads that table before
+any build script runs.
 
 - **`gtk::init` runs by hand, before `WebContext::new`.** tao initializes GTK when the event loop
   is built, and the web context is created before that. gtk-rs panics on a GTK call made before
   initialization, and the `--dark` settings lookup is one.
 - **The webview goes into tao's default GTK box through `build_gtk`.** wry's `build`, which takes
   the window itself, supports only X11 on Linux. `build_gtk` works under Wayland as well.
-- **`--dark` sets GTK's dark-theme preference on Linux only.** On every platform it also injects
-  a script setting the page's `color-scheme` to dark.
+- **`--dark` sets GTK's dark-theme preference on the GTK platforms only.** On every platform it
+  also injects a script setting the page's `color-scheme` to dark.
 - **Only Linux is built.** CI runs on Ubuntu, and the release builds `x86_64-unknown-linux-gnu`
-  alone, so no workflow compiles the `build` branch for macOS, iOS and Android. Windows cannot
-  compile at all, because the single-instance socket imports `std::os::unix` unconditionally.
+  alone, so no workflow compiles the `build` branch for macOS, iOS and Android, or the GTK branch
+  for a BSD. Windows cannot compile at all, because the single-instance socket imports
+  `std::os::unix` unconditionally.
 
 ## An app name is one profile and one window
 

@@ -11,7 +11,7 @@ use tao::{
 };
 use wry::{WebContext, WebViewBuilder};
 
-#[cfg(target_os = "linux")]
+#[cfg(gtk)]
 use gtk::prelude::*;
 
 #[derive(Parser)]
@@ -113,8 +113,8 @@ fn main() {
         return;
     }
 
-    // Initialize GTK (required on Linux before creating WebContext)
-    #[cfg(target_os = "linux")]
+    // Initialize GTK (required wherever wry builds on GTK, before creating WebContext)
+    #[cfg(gtk)]
     {
         gtk::init().expect("Failed to initialize GTK");
 
@@ -168,10 +168,10 @@ fn main() {
         );
     }
 
-    #[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
+    #[cfg(not(gtk))]
     let _webview = builder.build(&window).expect("Failed to build webview");
 
-    #[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "android")))]
+    #[cfg(gtk)]
     let _webview = {
         use tao::platform::unix::WindowExtUnix;
         use wry::WebViewBuilderExtUnix;
