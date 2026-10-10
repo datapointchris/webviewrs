@@ -9,5 +9,11 @@
 # max_width is the one line that has to be here. rustfmt defaults to 100 and the
 # standard width is 140, so a repo with no rustfmt.toml is not on the default —
 # it is on a different width from every other stack.
+#
+# cargo fmt passes each crate's own edition, which overrides `edition` here, and
+# the style edition follows the edition unless it is set. So style_edition is
+# what formats a 2021 crate and a 2024 crate alike. `edition` reaches only a bare
+# rustfmt call, which parses as 2015 without it and fails on `async fn`.
 max_width = 140
 edition = "2024"
+style_edition = "2024"
