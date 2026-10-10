@@ -1,4 +1,4 @@
-# forge-toolchain: 32
+# forge-toolchain: 33
 name: CI
 
 on:
@@ -41,6 +41,21 @@ jobs:
       - run: cargo build --all-targets
 
       - run: cargo test
+
+      # Reads Cargo.lock against the RustSec advisory database. It fails on a
+      # vulnerability and only prints an unmaintained or unsound crate, which
+      # is a warning in cargo-audit's own default. The release is a static musl
+      # binary, so the job needs no cargo install. The tag holds a slash, which
+      # the download URL carries as %2F.
+      - name: Vulnerabilities
+        run: |
+          cargo_audit_version="0.22.2"
+          release="cargo-audit-x86_64-unknown-linux-musl-v${cargo_audit_version}"
+          mkdir -p "$RUNNER_TEMP/cargo-audit"
+          curl -fsSL --retry 3 "https://github.com/rustsec/rustsec/releases/download/cargo-audit%2Fv${cargo_audit_version}/${release}.tgz" \
+            | tar -xzf - -C "$RUNNER_TEMP/cargo-audit" --strip-components=1 "${release}/cargo-audit"
+          "$RUNNER_TEMP/cargo-audit/cargo-audit" --version
+          "$RUNNER_TEMP/cargo-audit/cargo-audit" audit
 
   hooks:
     runs-on: ubuntu-latest
