@@ -1,4 +1,4 @@
-# forge-toolchain: 34
+# forge-toolchain: 35
 name: CI
 
 on:
@@ -32,8 +32,8 @@ jobs:
             librsvg2-dev
 
       # generated:rust
-      # The toolchain ships with the runner image; rust-toolchain.toml, if the
-      # repo has one, still decides the version.
+      # No toolchain step. rustup reads the rust-toolchain.toml forge deploys
+      # beside the hooks, and fetches that release on the first cargo call.
       - run: cargo fmt --check
 
       - run: cargo clippy --all-targets --all-features -- -D warnings

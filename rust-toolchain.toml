@@ -1,0 +1,17 @@
+# forge-managed
+#
+# The toolchain every cargo call in this repo compiles with, CI included. rustup
+# reads this file on each invocation and fetches exactly this release, which is
+# why the generated CI installs none. dtolnay/rust-toolchain does not read it:
+# that action's @rev is its own toolchain, so adding it beside this file gives
+# two pins that disagree, and rustup's wins.
+#
+# The channel comes from one declaration shared by every Rust repo here, so a
+# Rust release is one edit there rather than one per repo.
+#
+# The hooks and CI run cargo fmt and cargo clippy. Both components are named so
+# the toolchain rustup fetches carries them, whatever profile that machine's
+# rustup defaults to.
+[toolchain]
+channel = "1.99.0"
+components = ["rustfmt", "clippy"]
