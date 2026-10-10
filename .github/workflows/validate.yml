@@ -1,4 +1,4 @@
-# forge-toolchain: 38
+# forge-toolchain: 39
 name: CI
 
 on:
@@ -11,7 +11,7 @@ permissions:
 jobs:
 
   rust:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
 
       - uses: actions/checkout@v7
@@ -58,7 +58,7 @@ jobs:
           "$RUNNER_TEMP/cargo-audit/cargo-audit" audit
 
   hooks:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
 
       - uses: actions/checkout@v7

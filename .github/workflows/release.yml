@@ -23,7 +23,7 @@ jobs:
 
   release:
     needs: validate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: write
       issues: write
@@ -60,7 +60,7 @@ jobs:
   build:
     needs: release
     if: needs.release.outputs.published == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: write
     env:
@@ -106,7 +106,7 @@ jobs:
   publish:
     needs: [release, build]
     if: needs.release.outputs.published == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
         with:

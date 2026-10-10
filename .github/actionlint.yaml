@@ -1,0 +1,8 @@
+# forge-toolchain: 39
+# Labels actionlint cannot discover. Its list of GitHub's hosted images is the
+# one its release shipped with, and a self-hosted runner's labels are on no
+# list. Without this every runs-on naming one is reported as a typo and the
+# actionlint hook fails.
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04
