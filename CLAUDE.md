@@ -27,8 +27,8 @@ before uploading it.
 - **`--dark` sets GTK's dark-theme preference on Linux only.** On every platform it also injects
   a script setting the page's `color-scheme` to dark.
 - **Only Linux is built.** CI runs on Ubuntu, and the release builds `x86_64-unknown-linux-gnu`
-  alone, so no workflow compiles the macOS branch. Windows cannot compile at all, because the
-  single-instance socket imports `std::os::unix` unconditionally.
+  alone, so no workflow compiles the `build` branch for macOS, iOS and Android. Windows cannot
+  compile at all, because the single-instance socket imports `std::os::unix` unconditionally.
 
 ## An app name is one profile and one window
 
