@@ -41,14 +41,16 @@ jobs:
         with:
           node-version: 20
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # v1
+        with:
+          toolchain: stable
 
       - name: install cargo-edit
         run: cargo install cargo-edit --locked
 
       - name: semantic-release
         id: semrel
-        uses: cycjimmy/semantic-release-action@v4
+        uses: cycjimmy/semantic-release-action@16ca923e6ccbb50770c415a0ccd43709a8c5f7a4 # v4.2.2
         with:
           extra_plugins: |
             @semantic-release/exec
@@ -70,8 +72,9 @@ jobs:
         with:
           ref: v${{ needs.release.outputs.version }}
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # v1
         with:
+          toolchain: stable
           targets: x86_64-unknown-linux-gnu
 
       - name: install system dependencies
@@ -83,7 +86,7 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           key: ${{ env.TARGET }}
 
@@ -93,13 +96,13 @@ jobs:
       - name: package
         run: |
           mkdir -p dist
-          tar -C target/${TARGET}/release -czf \
-            dist/webviewrs-${VERSION}-${TARGET}.tar.gz webviewrs
-          (cd dist && sha256sum webviewrs-${VERSION}-${TARGET}.tar.gz \
-            > webviewrs-${VERSION}-${TARGET}.tar.gz.sha256)
+          tar -C "target/${TARGET}/release" -czf \
+            "dist/webviewrs-${VERSION}-${TARGET}.tar.gz" webviewrs
+          (cd dist && sha256sum "webviewrs-${VERSION}-${TARGET}.tar.gz" \
+            > "webviewrs-${VERSION}-${TARGET}.tar.gz.sha256")
 
       - name: upload to release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           tag_name: v${{ needs.release.outputs.version }}
           files: |
@@ -115,7 +118,9 @@ jobs:
         with:
           ref: v${{ needs.release.outputs.version }}
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # v1
+        with:
+          toolchain: stable
 
       - name: install system dependencies
         run: |
@@ -126,7 +131,7 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           key: publish
 
