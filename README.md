@@ -14,8 +14,18 @@ sudo pacman -S webkit2gtk-4.1 noto-fonts-emoji
 
 ## Install
 
+The binary links against the packages under Requirements. Install them before either command below.
+
+`cargo binstall` downloads the prebuilt binary attached to each GitHub release:
+
 ```bash
-cargo install --git https://github.com/datapointchris/webviewrs
+cargo binstall webviewrs
+```
+
+`cargo install` builds the crates.io release from source:
+
+```bash
+cargo install webviewrs
 ```
 
 ## Usage
