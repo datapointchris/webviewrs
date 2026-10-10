@@ -1,4 +1,4 @@
-# forge-toolchain: 39
+# forge-toolchain: 40
 name: CI
 
 on:
@@ -34,10 +34,6 @@ jobs:
       # generated:rust
       # No toolchain step. rustup reads the rust-toolchain.toml forge deploys
       # beside the hooks, and fetches that release on the first cargo call.
-      - run: cargo fmt --check
-
-      - run: cargo clippy --all-targets --all-features -- -D warnings
-
       - run: cargo build --all-targets
 
       - run: cargo test
@@ -63,12 +59,29 @@ jobs:
 
       - uses: actions/checkout@v7
 
+      # > custom:before:hooks - WebKitGTK development headers
+      #
+      # The cargo-clippy hook builds the crate, so it needs the same system
+      # WebKitGTK the rust job installs.
+      - name: install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
       # generated:hooks
-      # The hooks no other job in this workflow runs, which forge lists below
-      # from the repo's committed config. A push from a checkout that never ran
-      # `pre-commit install`, or a merge in the web UI, passes every hook by not
-      # running it, and this is the gate that catches both.
-      - uses: astral-sh/setup-uv@v7
+      # Every hook a standard block put in the repo's committed config, which
+      # forge lists below. A push from a checkout that never ran `pre-commit
+      # install`, or a merge in the web UI, passes every hook by not running it,
+      # and this is the gate that catches both. CI runs the hooks themselves
+      # rather than copies of their checks, because a copy is a second spelling
+      # of the check that drifts from the first.
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        with:
+          version: "0.12.24"
 
       # A self-hosted runner keeps ~/.cache/pre-commit between jobs, so there
       # the archive is a download of what is already on disk.
@@ -78,28 +91,144 @@ jobs:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
+      # The bats hook is `language: system`, so bats has to be on PATH. Every
+      # config carries the hook, and the step does nothing where there are no
+      # suites.
+      #
+      # All three are cloned at a tag rather than from main: a test harness
+      # that moves on its own turns an unrelated upstream change into a failing
+      # build, and nothing records which version a green run used.
+      #
+      # bats-core runs from its clone in RUNNER_TEMP, by PATH. Installed into
+      # /usr/local, it would be one copy every runner on a self-hosted box
+      # rewrites while the others execute it.
+      #
+      # The helper libraries go under ~/.local/lib because that is where the
+      # suites `load` them from — the same path they use on a workstation, so a
+      # test cannot pass locally and fail here over a lookup path. The suites
+      # name that path literally, and `load` resolves nothing, so BATS_LIB_PATH
+      # cannot move the libraries anywhere cheaper.
+      #
+      # On the self-hosted pool that $HOME outlives the job and is shared by
+      # every repo's runner, so concurrent jobs meet at ~/.local/lib. Each
+      # release is cloned once, into a directory named for its version, and
+      # nothing that has been loaded from is ever removed. The clone is staged
+      # beside its target and renamed into place, so a reader never sees a
+      # partial one, and a job that loses the race keeps the winner's copy. The
+      # path the suites load is a symlink to the pinned release, replaced by
+      # rename. A new pin names a new directory, so a runner never serves the
+      # tag it cloned first while CI reports the pin. A real directory at the
+      # symlink's path cannot be renamed over, so it is removed first.
+      #
+      # The hook runs tests/*.bats, flat. Recursing would sweep an integration
+      # tier in beside the unit one, and only the repo knows which of its tiers
+      # is runner-safe. A nested layout is named in a notice rather than passed
+      # over in silence, which is how one went unnoticed before.
+      #
+      # jq is installed ahead of the runner's own, because the scripts under
+      # test evaluate jq programs and jq's grammar moves between releases. 1.8
+      # accepts an object value piped into `//` without parentheses, and 1.7
+      # rejects the whole program. The version is the release the development
+      # machines run, so a program parses here exactly when it parses there.
+      - name: Set up bats
+        run: |
+          bats_version="1.14.0"
+          bats_support_version="0.3.0"
+          bats_assert_version="2.2.4"
+          jq_version="1.8.2"
+
+          if ! compgen -G "tests/*.bats" > /dev/null; then
+            if [ -n "$(find tests -name '*.bats' -print -quit 2>/dev/null)" ]; then
+              echo "::notice::bats suites exist under tests/ but none at its root, and the bats hook runs tests/*.bats only"
+            fi
+            exit 0
+          fi
+
+          git clone --depth 1 --branch "v${bats_version}" \
+            https://github.com/bats-core/bats-core.git "$RUNNER_TEMP/bats"
+          echo "$RUNNER_TEMP/bats/bin" >> "$GITHUB_PATH"
+
+          lib="$HOME/.local/lib"
+          mkdir -p "$lib"
+          for helper in "bats-support:${bats_support_version}" "bats-assert:${bats_assert_version}"; do
+            name="${helper%%:*}"
+            release="${name}-v${helper#*:}"
+            if [ ! -d "$lib/$release" ]; then
+              staged=$(mktemp -d "$lib/.$release.XXXXXX")
+              git clone --depth 1 --branch "v${helper#*:}" \
+                "https://github.com/bats-core/$name.git" "$staged"
+              mv -T "$staged" "$lib/$release" 2>/dev/null || rm -rf "$staged"
+            fi
+            [ -L "$lib/$name" ] || rm -rf "${lib:?}/$name"
+            ln -s "$release" "$lib/.$name.$$"
+            mv -T "$lib/.$name.$$" "$lib/$name"
+          done
+
+          mkdir -p "$RUNNER_TEMP/jq"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/jq/jq" \
+            "https://github.com/jqlang/jq/releases/download/jq-${jq_version}/jq-linux-amd64"
+          chmod +x "$RUNNER_TEMP/jq/jq"
+          echo "$RUNNER_TEMP/jq" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/jq/jq" --version
+
       # Over what the push or pull request changed, which is what the hooks
       # would have seen at commit time. --all-files would fail a push on every
       # finding in a file it never touched, so it is the scope only where no
       # earlier commit can be fetched, as on a repo's first push.
       #
+      # Or where the change touches a file that configures a hook or pins what
+      # it checks against: the hook config, a tool's config, a manifest, a lock
+      # or a toolchain file. None of those matches a hook's own file types, so
+      # a new release or rule would otherwise grade nothing in the commit that
+      # brought it, and its findings would land on the next author to touch the
+      # code.
+      #
       # The checkout is one commit deep, and diffing needs one more. pre-commit
       # falls back to a two-dot diff where the two commits share no history on
       # disk, and refcheck's --moves reads the range as a two-dot diff too, so
       # the base commit alone is enough.
+      #
+      # GITHUB_TOKEN is for the tflint hook, whose --init installs the plugins a
+      # .tflint.hcl names from GitHub, which rate-limits a runner that does not
+      # authenticate.
+      #
+      # setup-go exports GOTOOLCHAIN=local, and this job sets Go up once per
+      # module. Under local, a later setup-go ignores its go.mod's toolchain
+      # line, and each module's go refuses a go.mod asking for a newer release.
+      # auto lets each module's go switch to the toolchain its go.mod names. It
+      # is exported in the script, where no GITHUB_ENV write can override it.
       - name: Run the hooks over the change
         env:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
+          export GOTOOLCHAIN=auto
+          from=
           if [ -n "$BASE" ] && git fetch --quiet --depth=1 --no-tags origin "$BASE" 2>/dev/null; then
-            scope=(--from-ref "$BASE" --to-ref HEAD)
+            from=$BASE
           elif git fetch --quiet --depth=2 --no-tags origin "$(git rev-parse HEAD)" &&
             git rev-parse --quiet --verify HEAD~1 >/dev/null; then
             echo "::notice::this event names no base commit, so only the head commit's change is checked"
-            scope=(--from-ref HEAD~1 --to-ref HEAD)
+            from=HEAD~1
           else
             echo "::notice::no earlier commit to diff against, so every file is checked"
-            scope=(--all-files)
+          fi
+          scope=(--all-files)
+          if [ -n "$from" ]; then
+            scope=(--from-ref "$from" --to-ref HEAD)
+            while IFS= read -r changed; do
+              case "${changed##*/}" in
+                .pre-commit-config.yaml | .editorconfig | .codespellrc | .markdownlint.yaml | \
+                  .shellcheckrc | .golangci.yml | .sqlfluff | .tflint.hcl | .prettierrc.yaml | \
+                  eslint.config.* | tsconfig*.json | stylua.toml | .stylua.toml | \
+                  pyproject.toml | uv.lock | go.mod | go.sum | Cargo.toml | Cargo.lock | \
+                  rust-toolchain.toml | package.json | package-lock.json | .nvmrc | .terraform.lock.hcl)
+                  echo "::notice::$changed changed, so every file is checked"
+                  scope=(--all-files)
+                  break
+                  ;;
+              esac
+            done < <(git diff --name-only "$from" HEAD)
           fi
           hooks=(
             check-yaml
@@ -118,8 +247,11 @@ jobs:
             markdownlint
             shellcheck
             shfmt
+            bats
             codespell
             refcheck
+            cargo-fmt
+            cargo-clippy
             actionlint
           )
           # Every hook runs whatever the one before it found, so one push
