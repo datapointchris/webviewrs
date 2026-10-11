@@ -48,6 +48,14 @@ indent_style = tab
 [*.{py,rs}]
 indent_size = 4
 
+# StyLua reads these where a repo carries no stylua.toml, and its own defaults
+# are 120 columns and double quotes. 140 is the width ruff, prettier and rustfmt
+# are given, and single quotes are what ruff's quote-style and prettier's
+# singleQuote already choose.
+[*.lua]
+max_line_length = 140
+quote_type = single
+
 # Inherits indent_size = 2 to agree with markdownlint's MD007, which the shared
 # .markdownlint.yaml leaves at its 2-space default via `default: true`.
 # trim_trailing_whitespace matches the trailing-whitespace hook's
