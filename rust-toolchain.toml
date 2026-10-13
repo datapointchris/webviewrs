@@ -11,7 +11,9 @@
 #
 # The hooks and CI run cargo fmt and cargo clippy. Both components are named so
 # the toolchain rustup fetches carries them, whatever profile that machine's
-# rustup defaults to.
+# rustup defaults to. rust-analyzer is named for the editor: its language server
+# starts through rustup's proxy, which resolves this pinned toolchain and fails
+# with "Unknown binary" where the toolchain lacks the component.
 [toolchain]
 channel = "1.99.0"
-components = ["rustfmt", "clippy"]
+components = ["rustfmt", "clippy", "rust-analyzer"]
