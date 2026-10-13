@@ -1,4 +1,4 @@
-# forge-toolchain: 43
+# forge-toolchain: 45
 name: CI
 
 on:
@@ -220,6 +220,7 @@ jobs:
               case "${changed##*/}" in
                 .pre-commit-config.yaml | .editorconfig | .codespellrc | .markdownlint.yaml | \
                   .shellcheckrc | .golangci.yml | .sqlfluff | .tflint.hcl | .prettierrc.yaml | \
+                  .prettierignore | rustfmt.toml | .rustfmt.toml | \
                   eslint.config.* | tsconfig*.json | stylua.toml | .stylua.toml | \
                   pyproject.toml | uv.lock | go.mod | go.sum | Cargo.toml | Cargo.lock | \
                   rust-toolchain.toml | package.json | package-lock.json | .nvmrc | .terraform.lock.hcl)
