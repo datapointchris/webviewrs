@@ -57,6 +57,10 @@ The name is sanitized before it becomes a directory. Every character that is not
 or `_` becomes `_`, outer underscores are trimmed, and the result is lowercased. Names that sanitize
 alike, such as `RSS` and `rss`, share one profile and one window.
 
+A sanitized name longer than 255 bytes, the most one path component holds, is cut to fit. It keeps
+its start, then a hyphen and a 16-digit hash of the whole sanitized name. Two long URLs that share
+a start still get two profiles.
+
 Two stores are shared by every name. WebKit's HTTP cache is in `$XDG_CACHE_HOME/webviewrs/`, which
 defaults to `~/.cache/webviewrs/`. Its HSTS list is `hsts-storage.sqlite`, beside the profile
 directories.

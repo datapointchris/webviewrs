@@ -47,6 +47,12 @@ The name is sanitized before it becomes a directory. Every character that is not
 `-` or `_` becomes `_`, outer underscores are trimmed, and the result is lowercased. Names that
 sanitize alike, such as `RSS` and `rss`, share one profile and one window.
 
+A sanitized name over 255 bytes, Linux's limit for one path component, keeps its start and ends
+in a hyphen and the 16-digit FNV-1a hash of the whole sanitized name, at most 255 bytes in all.
+The start is cut on a character boundary. A name that fits is never cut, so its directory is the
+sanitized name exactly. The hash is FNV-1a rather than std's hasher because std's output may
+change between Rust releases, and a changed hash would strand every long-named profile's logins.
+
 A launch first connects to `instance.sock` in that directory. A live instance takes the `focus`
 message and focuses its window, and the new process exits 0 without opening its URL. When the
 connect fails, any socket file there is stale, so the new instance deletes it and binds its own. A

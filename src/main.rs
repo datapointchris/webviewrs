@@ -51,10 +51,40 @@ fn sanitize_name(s: &str) -> String {
         .to_lowercase()
 }
 
+/// The longest name one path component may hold on Linux, in bytes.
+const NAME_MAX: usize = 255;
+
+/// FNV-1a over 64 bits, as 16 hex digits. The algorithm fixes its output, unlike std's hasher,
+/// whose output may differ between Rust releases, so every build finds the same directory.
+fn fnv1a_hex(bytes: &[u8]) -> String {
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for &byte in bytes {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    format!("{hash:016x}")
+}
+
+/// The profile directory's name. A sanitized name that fits in one path component is used whole.
+/// A longer one, such as a long URL, keeps the start that fits beside a hyphen and the FNV-1a hash
+/// of the whole sanitized name.
+fn profile_dir_name(name: &str) -> String {
+    let sanitized = sanitize_name(name);
+    if sanitized.len() <= NAME_MAX {
+        return sanitized;
+    }
+    let suffix = format!("-{}", fnv1a_hex(sanitized.as_bytes()));
+    let mut end = NAME_MAX - suffix.len();
+    while !sanitized.is_char_boundary(end) {
+        end -= 1;
+    }
+    format!("{}{suffix}", &sanitized[..end])
+}
+
 /// Get the data directory for persistent storage
 fn get_data_dir(name: &str) -> PathBuf {
     let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from(".")).join("webviewrs");
-    base.join(sanitize_name(name))
+    base.join(profile_dir_name(name))
 }
 
 /// Get the socket path for single-instance communication
