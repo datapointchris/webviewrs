@@ -18,6 +18,14 @@ use gtk::prelude::*;
 #[derive(Parser)]
 #[command(name = "webviewrs", version)]
 #[command(about = "Open a URL in a minimal native webview window")]
+#[command(after_help = "\
+Name every app you log in to with -n. The name holds its cookies and storage.
+Without one the title or URL is the name, so a changed -t opens an empty
+profile. Launching a name that is already open focuses its window.
+
+Examples:
+  webviewrs -n rss -t RSS --dark https://rss.example.com
+  webviewrs https://example.com")]
 struct Args {
     /// URL to open
     url: String,
