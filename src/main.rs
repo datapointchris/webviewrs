@@ -87,11 +87,6 @@ fn profiles_dir() -> PathBuf {
     dirs::data_dir().unwrap_or_else(|| PathBuf::from(".")).join("webviewrs")
 }
 
-/// Get the data directory for persistent storage
-fn get_data_dir(name: &str) -> PathBuf {
-    profiles_dir().join(profile_dir_name(name))
-}
-
 /// The socket a profile's window takes focus requests on, in `$XDG_RUNTIME_DIR/webviewrs/` or
 /// beside the profiles where that is unset. A Unix socket path holds at most 107 bytes, so the file
 /// is named for the FNV-1a hash of the profile directory's path rather than for the app name.
@@ -142,9 +137,23 @@ fn start_instance_listener(listener: UnixListener, proxy: EventLoopProxy<UserEve
 fn main() {
     let args = Args::parse();
 
+    let name_source = match (&args.name, &args.title) {
+        (Some(_), _) => "-n",
+        (None, Some(_)) => "-t",
+        (None, None) => "the URL",
+    };
     let title = args.title.unwrap_or_else(|| args.url.clone());
     let app_name = args.name.unwrap_or_else(|| title.clone());
-    let data_dir = get_data_dir(&app_name);
+
+    // An empty directory name would make this profile the directory that holds every profile.
+    let dir_name = profile_dir_name(&app_name);
+    if dir_name.is_empty() {
+        eprintln!(
+            "webviewrs: the app name {app_name:?}, from {name_source}, has no letter, digit or hyphen to name a profile after; pass -n with one"
+        );
+        std::process::exit(2);
+    }
+    let data_dir = profiles_dir().join(dir_name);
 
     // Ensure data directory exists
     std::fs::create_dir_all(&data_dir).expect("Failed to create data directory");

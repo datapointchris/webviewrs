@@ -55,7 +55,9 @@ old logins stay in the old directory. Pass `-n` for anything you log into.
 
 The name is sanitized before it becomes a directory. Every character that is not alphanumeric, `-`
 or `_` becomes `_`, outer underscores are trimmed, and the result is lowercased. Names that sanitize
-alike, such as `RSS` and `rss`, share one profile and one window.
+alike, such as `RSS` and `rss`, share one profile and one window. A name with no letter, digit or
+hyphen sanitizes to nothing, such as `-n "///"` or a title of only punctuation. webviewrs refuses
+it before writing anything, with one line on stderr, and exits 2.
 
 A sanitized name longer than 255 bytes, the most one path component holds, is cut to fit. It keeps
 its start, then a hyphen and a 16-digit hash of the whole sanitized name. Two long URLs that share

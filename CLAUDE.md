@@ -44,7 +44,10 @@ without `-n` starts an empty profile. The old logins stay in the old directory.
 
 The name is sanitized before it becomes a directory. Every character that is not alphanumeric,
 `-` or `_` becomes `_`, outer underscores are trimmed, and the result is lowercased. Names that
-sanitize alike, such as `RSS` and `rss`, share one profile and one window.
+sanitize alike, such as `RSS` and `rss`, share one profile and one window. A name with no letter,
+digit or hyphen sanitizes to nothing, and an empty directory name would make that profile the
+`webviewrs/` directory itself. `main` refuses it before anything touches disk, with one line on
+stderr naming the name and its source, and exits 2, which is clap's usage-error code.
 
 A sanitized name over 255 bytes, Linux's limit for one path component, keeps its start and ends
 in a hyphen and the 16-digit FNV-1a hash of the whole sanitized name, at most 255 bytes in all.
