@@ -1,4 +1,5 @@
 use std::io::{Read, Write};
+use std::os::unix::ffi::OsStrExt;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
 use std::thread;
@@ -81,15 +82,23 @@ fn profile_dir_name(name: &str) -> String {
     format!("{}{suffix}", &sanitized[..end])
 }
 
-/// Get the data directory for persistent storage
-fn get_data_dir(name: &str) -> PathBuf {
-    let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from(".")).join("webviewrs");
-    base.join(profile_dir_name(name))
+/// The directory holding every profile.
+fn profiles_dir() -> PathBuf {
+    dirs::data_dir().unwrap_or_else(|| PathBuf::from(".")).join("webviewrs")
 }
 
-/// Get the socket path for single-instance communication
+/// Get the data directory for persistent storage
+fn get_data_dir(name: &str) -> PathBuf {
+    profiles_dir().join(profile_dir_name(name))
+}
+
+/// The socket a profile's window takes focus requests on, in `$XDG_RUNTIME_DIR/webviewrs/` or
+/// beside the profiles where that is unset. A Unix socket path holds at most 107 bytes, so the file
+/// is named for the FNV-1a hash of the profile directory's path rather than for the app name.
+/// Hashing the whole path keeps a profile under another data directory from answering for this one.
 fn get_socket_path(data_dir: &Path) -> PathBuf {
-    data_dir.join("instance.sock")
+    let dir = dirs::runtime_dir().map_or_else(profiles_dir, |runtime| runtime.join("webviewrs"));
+    dir.join(format!("{}.sock", fnv1a_hex(data_dir.as_os_str().as_bytes())))
 }
 
 /// Custom event for the event loop
@@ -108,18 +117,23 @@ fn try_focus_existing(socket_path: &Path) -> bool {
     }
 }
 
-/// Start listening for focus requests from other instances
-fn start_instance_listener(socket_path: PathBuf, proxy: EventLoopProxy<UserEvent>) {
-    // Remove stale socket file if it exists
-    let _ = std::fs::remove_file(&socket_path);
+/// Bind the profile's socket. Only a launch whose connect failed reaches this, so a socket file
+/// already there is stale and is removed first.
+fn bind_instance_socket(socket_path: &Path) -> std::io::Result<UnixListener> {
+    if let Some(dir) = socket_path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    let _ = std::fs::remove_file(socket_path);
+    UnixListener::bind(socket_path)
+}
 
+/// Start listening for focus requests from other instances
+fn start_instance_listener(listener: UnixListener, proxy: EventLoopProxy<UserEvent>) {
     thread::spawn(move || {
-        if let Ok(listener) = UnixListener::bind(&socket_path) {
-            for mut stream in listener.incoming().flatten() {
-                let mut buf = [0u8; 5];
-                if stream.read(&mut buf).is_ok() && &buf == b"focus" {
-                    let _ = proxy.send_event(UserEvent::FocusWindow);
-                }
+        for mut stream in listener.incoming().flatten() {
+            let mut buf = [0u8; 5];
+            if stream.read(&mut buf).is_ok() && &buf == b"focus" {
+                let _ = proxy.send_event(UserEvent::FocusWindow);
             }
         }
     });
@@ -143,6 +157,19 @@ fn main() {
         return;
     }
 
+    // Bound before the window is built, so a launch racing this one queues on the socket rather
+    // than opening a second window.
+    let listener = match bind_instance_socket(&socket_path) {
+        Ok(listener) => Some(listener),
+        Err(err) => {
+            eprintln!("webviewrs: cannot listen for focus requests on {}: {err}", socket_path.display());
+            eprintln!("This window opens, but the next launch of this name opens a second window.");
+            None
+        }
+    };
+    // Only the instance that bound the socket removes it on close.
+    let owned_socket = listener.as_ref().map(|_| socket_path.clone());
+
     // Initialize GTK (required wherever wry builds on GTK, before creating WebContext)
     #[cfg(gtk)]
     {
@@ -163,7 +190,9 @@ fn main() {
     let proxy = event_loop.create_proxy();
 
     // Start listening for other instances
-    start_instance_listener(socket_path.clone(), proxy);
+    if let Some(listener) = listener {
+        start_instance_listener(listener, proxy);
+    }
 
     let window = WindowBuilder::new()
         .with_title(&title)
@@ -209,9 +238,6 @@ fn main() {
         builder.build_gtk(vbox).expect("Failed to build webview")
     };
 
-    // Clean up socket on exit
-    let socket_path_cleanup = socket_path.clone();
-
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
 
@@ -223,7 +249,9 @@ fn main() {
                 event: WindowEvent::CloseRequested,
                 ..
             } => {
-                let _ = std::fs::remove_file(&socket_path_cleanup);
+                if let Some(path) = &owned_socket {
+                    let _ = std::fs::remove_file(path);
+                }
                 *control_flow = ControlFlow::Exit;
             }
             _ => {}

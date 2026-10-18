@@ -50,8 +50,8 @@ webviewrs -n youtube -t "New Music" --dark "https://www.youtube.com/playlist?lis
 
 The name is `-n`, else the title `-t`, else the URL. It names a directory under `webviewrs/` in
 `$XDG_DATA_HOME`, which defaults to `~/.local/share`. That directory holds the webview's cookies
-and local storage, and the instance socket. Changing `-t` on an app launched without `-n` starts an
-empty profile, and the old logins stay in the old directory. Pass `-n` for anything you log into.
+and local storage. Changing `-t` on an app launched without `-n` starts an empty profile, and the
+old logins stay in the old directory. Pass `-n` for anything you log into.
 
 The name is sanitized before it becomes a directory. Every character that is not alphanumeric, `-`
 or `_` becomes `_`, outer underscores are trimmed, and the result is lowercased. Names that sanitize
@@ -67,14 +67,17 @@ directories.
 
 ## A name that is open takes the launch, through its socket
 
-A launch first connects to `instance.sock` in the profile directory. A live instance takes the
-`focus` message and raises its window. The new process prints `Focused existing instance` and exits
-0 without opening its URL. When the connect fails, any socket file there is stale, so the new
-instance deletes it and binds its own. A clean close removes the socket.
+A launch first connects to the profile's socket in `$XDG_RUNTIME_DIR/webviewrs/`. Where that
+variable is unset, the socket sits beside the profile directories instead. Its file name is a
+16-digit hash of the profile directory's path, so a long name never pushes it past the 107 bytes
+a Unix socket path can hold. A profile under another `$XDG_DATA_HOME` has a socket of its own.
 
-A failed bind is silent, and the next launch of that name opens a second window. A socket path past
-the 107-byte Unix limit fails that way. A URL used as the name is often long enough: a YouTube
-playlist URL gives a socket path of about 120 bytes. That is one more reason to pass `-n`.
+A live instance takes the `focus` message and raises its window. The new process prints `Focused
+existing instance` and exits 0 without opening its URL. When the connect fails, any socket file
+there is stale, so the new instance deletes it and binds its own. A clean close removes the socket.
+
+A bind that fails prints the socket's path and the error on stderr. That window still opens, and
+the next launch of that name opens a second window.
 
 ## A new-window request opens the system browser
 
