@@ -15,7 +15,7 @@ use wry::{WebContext, WebViewBuilder};
 use gtk::prelude::*;
 
 #[derive(Parser)]
-#[command(name = "webviewrs")]
+#[command(name = "webviewrs", version)]
 #[command(about = "Open a URL in a minimal native webview window")]
 struct Args {
     /// URL to open
