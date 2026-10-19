@@ -1,4 +1,4 @@
-# forge-toolchain: 46
+# forge-toolchain: 48
 name: CI
 
 on:
@@ -32,8 +32,8 @@ jobs:
             librsvg2-dev
 
       # generated:rust
-      # No toolchain step. rustup reads the rust-toolchain.toml forge deploys
-      # beside the hooks, and fetches that release on the first cargo call.
+      # No toolchain step. rustup reads the repo's rust-toolchain.toml, and
+      # fetches that release on the first cargo call.
       - run: cargo build --all-targets
 
       - run: cargo test
@@ -73,8 +73,8 @@ jobs:
             librsvg2-dev
 
       # generated:hooks
-      # Every hook a standard block put in the repo's committed config, which
-      # forge lists below. A push from a checkout that never ran `pre-commit
+      # Every hook in the repo's committed pre-commit config. A push from a
+      # checkout that never ran `pre-commit
       # install`, or a merge in the web UI, passes every hook by not running it,
       # and this is the gate that catches both. CI runs the hooks themselves
       # rather than copies of their checks, because a copy is a second spelling
@@ -109,8 +109,8 @@ jobs:
       # name that path literally, and `load` resolves nothing, so BATS_LIB_PATH
       # cannot move the libraries anywhere cheaper.
       #
-      # On the self-hosted pool that $HOME outlives the job and is shared by
-      # every repo's runner, so concurrent jobs meet at ~/.local/lib. Each
+      # On a self-hosted runner, $HOME can outlive the job and be shared by
+      # several repos' runners, so concurrent jobs meet at ~/.local/lib. Each
       # release is cloned once, into a directory named for its version, and
       # nothing that has been loaded from is ever removed. The clone is staged
       # beside its target and renamed into place, so a reader never sees a
@@ -123,13 +123,13 @@ jobs:
       # The hook runs tests/*.bats, flat. Recursing would sweep an integration
       # tier in beside the unit one, and only the repo knows which of its tiers
       # is runner-safe. A nested layout is named in a notice rather than passed
-      # over in silence, which is how one went unnoticed before.
+      # over in silence.
       #
       # jq is installed ahead of the runner's own, because the scripts under
       # test evaluate jq programs and jq's grammar moves between releases. 1.8
       # accepts an object value piped into `//` without parentheses, and 1.7
-      # rejects the whole program. The version is the release the development
-      # machines run, so a program parses here exactly when it parses there.
+      # rejects the whole program. The version is pinned to the jq developers
+      # run locally, so a program parses here exactly when it parses there.
       - name: Set up bats
         run: |
           bats_version="1.14.0"

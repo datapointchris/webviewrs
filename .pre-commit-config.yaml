@@ -1,4 +1,4 @@
-# forge-toolchain: 46
+# forge-toolchain: 48
 fail_fast: true
 default_stages: [pre-commit]
 repos:
@@ -94,11 +94,19 @@ repos:
   # from a linked worktree exports GIT_DIR and GIT_INDEX_FILE into each hook,
   # and GIT_DIR outranks `git -C`, so a test running `git config` in its own
   # scratch repo writes into the repository being committed instead.
+  #
+  # The suite runs one job per online core. Most of a bats test's cost is the
+  # framework re-sourcing its file and loading the helper libraries for every
+  # test, which no change to the tests removes, so wall time falls roughly by
+  # the core count. --jobs needs GNU parallel, and where it is not on PATH the
+  # suite runs serially rather than failing. getconf rather than nproc, which
+  # macOS lacks. A suite that cannot share a file across jobs sets
+  # BATS_NO_PARALLELIZE_WITHIN_FILE=true in its setup_file.
   - repo: local
     hooks:
       - id: bats
         name: bats
-        entry: bash -c 'unset $(git rev-parse --local-env-vars); compgen -G "tests/*.bats" > /dev/null || exit 0; exec bats tests/'
+        entry: bash -c 'unset $(git rev-parse --local-env-vars); compgen -G "tests/*.bats" > /dev/null || exit 0; command -v parallel > /dev/null || exec bats tests/; exec bats --jobs "$(getconf _NPROCESSORS_ONLN)" tests/'
         language: system
         pass_filenames: false
 
