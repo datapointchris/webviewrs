@@ -1,4 +1,4 @@
-# forge-toolchain: 49
+# forge-toolchain: 52
 fail_fast: true
 default_stages: [pre-commit]
 repos:
@@ -194,24 +194,31 @@ repos:
         args: [--moves]
 
 # generated:rust - Rust
+  #
+  # One pair per declared Rust directory, each run from inside it, where cargo
+  # finds that directory's Cargo.toml. A workspace in crates/ has no manifest at
+  # the root, so a cargo call there fails before checking anything. Filenames
+  # are never passed, so files only decides when they fire.
   - repo: local
     hooks:
       - id: cargo-fmt
         name: cargo fmt
-        entry: cargo fmt
+        entry: bash -c 'cd . && exec cargo fmt'
         language: system
         types: [rust]
         pass_filenames: false
+        files: '^'
       - id: cargo-clippy
         name: cargo clippy
-        entry: cargo clippy --all-targets --all-features -- -D warnings
+        entry: bash -c 'cd . && exec cargo clippy --all-targets --all-features -- -D warnings'
         language: system
         types: [rust]
         pass_filenames: false
+        files: '^'
 
 # generated:github-actions - GitHub Actions
-  - repo: https://github.com/rhysd/actionlint
-    rev: v1.7.7
+  - repo: https://github.com/jdx/jactionlint
+    rev: v1.8.2
     hooks:
-      - id: actionlint
+      - id: jactionlint
         args: ["-color", "-shellcheck="]

@@ -16,6 +16,7 @@ permissions:
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
+  queue: max
 
 jobs:
   # Without this, release publishes whatever is on main, linted or not.
