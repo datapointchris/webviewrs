@@ -1,4 +1,4 @@
-# forge-toolchain: 52
+# forge-toolchain: 53
 fail_fast: true
 default_stages: [pre-commit]
 repos:
@@ -62,8 +62,12 @@ repos:
   # worse than either erroring. identify already tags these files zsh,
   # so this is the native exclusion rather than a path regex that would have to
   # enumerate .zshrc, .zprofile, .zlogin and the rest.
-  - repo: https://github.com/koalaman/shellcheck-precommit
-    rev: v0.10.0
+  #
+  # shellcheck-py installs shellcheck's own release binary through pip and
+  # checks its sha256, so the hook needs no Docker daemon and no system
+  # package. Its tag is the shellcheck release it wraps, plus a packaging digit.
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
     hooks:
       - id: shellcheck
         exclude_types: [zsh]
@@ -165,7 +169,12 @@ repos:
         # nobody may respell — which is why the class is excluded rather than any
         # one repo's data. `.tsv` is named beside `.csv` as the same format with
         # a different delimiter.
-        exclude: '(^|/)(.*-lock\.json|.*\.lock|uv\.lock|package-lock\.json|go\.sum|go\.mod|secrets?[^/]*\.(ya?ml|env|json)|.*\.enc\.[^/]+|.*\.[ct]sv)$'
+        #
+        # `gotk-components.yaml` is `flux install --export`, under the name
+        # `flux bootstrap` gives it. Its CRD descriptions are Flux's prose, and
+        # the file says DO NOT EDIT, so a hit there is fixed by no edit: the next
+        # export writes it back, as `go mod tidy` writes back a module path.
+        exclude: '(^|/)(.*-lock\.json|.*\.lock|uv\.lock|package-lock\.json|go\.sum|go\.mod|gotk-components\.yaml|secrets?[^/]*\.(ya?ml|env|json)|.*\.enc\.[^/]+|.*\.[ct]sv)$'
 
 # generated:refcheck - Reference checking
   #
