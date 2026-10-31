@@ -1,4 +1,4 @@
-# forge-toolchain: 54
+# forge-toolchain: 55
 fail_fast: true
 default_stages: [pre-commit]
 repos:

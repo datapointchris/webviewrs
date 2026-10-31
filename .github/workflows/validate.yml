@@ -1,4 +1,4 @@
-# forge-toolchain: 54
+# forge-toolchain: 55
 name: CI
 
 on:
@@ -82,6 +82,14 @@ jobs:
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: "0.12.24"
+
+      # pre-commit takes a `language: node` hook's Node from PATH where node and
+      # npm are there, and otherwise downloads the newest release. That release
+      # can need libraries a runner image lacks, as Node 25 needs libatomic. So
+      # the job puts the declared Node on PATH, on every runner alike.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
 
       # A self-hosted runner keeps ~/.cache/pre-commit between jobs, so there
       # the archive is a download of what is already on disk.
@@ -257,8 +265,12 @@ jobs:
           )
           # Every hook runs whatever the one before it found, so one push
           # reports every failing hook rather than the first.
+          #
+          # pre-commit builds each `language: python` hook on the interpreter
+          # running it. Left to uv, that is whatever Python the runner ships,
+          # so pre-commit runs on the declared floor instead.
           status=0
           for hook in "${hooks[@]}"; do
-            uvx pre-commit run "$hook" "${scope[@]}" --show-diff-on-failure || status=1
+            uvx --python 3.13 pre-commit run "$hook" "${scope[@]}" --show-diff-on-failure || status=1
           done
           exit "$status"
