@@ -1,4 +1,4 @@
-# forge-toolchain: 55
+# forge-toolchain: 56
 name: CI
 
 on:
@@ -138,12 +138,19 @@ jobs:
       # accepts an object value piped into `//` without parentheses, and 1.7
       # rejects the whole program. The version is pinned to the jq developers
       # run locally, so a program parses here exactly when it parses there.
+      #
+      # yq and rg are installed for the same scripts, which read YAML and
+      # search with them. A self-hosted runner image ships neither, so every
+      # test reaching one exits 127. Each is pinned to the release developers
+      # run, as jq is.
       - name: Set up bats
         run: |
           bats_version="1.14.0"
           bats_support_version="0.3.0"
           bats_assert_version="2.2.4"
           jq_version="1.8.2"
+          yq_version="4.54.1"
+          rg_version="15.2.0"
 
           if ! compgen -G "tests/*.bats" > /dev/null; then
             if [ -n "$(find tests -name '*.bats' -print -quit 2>/dev/null)" ]; then
@@ -178,6 +185,20 @@ jobs:
           chmod +x "$RUNNER_TEMP/jq/jq"
           echo "$RUNNER_TEMP/jq" >> "$GITHUB_PATH"
           "$RUNNER_TEMP/jq/jq" --version
+
+          mkdir -p "$RUNNER_TEMP/yq"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/yq/yq" \
+            "https://github.com/mikefarah/yq/releases/download/v${yq_version}/yq_linux_amd64"
+          chmod +x "$RUNNER_TEMP/yq/yq"
+          echo "$RUNNER_TEMP/yq" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/yq/yq" --version
+
+          rg_release="ripgrep-${rg_version}-x86_64-unknown-linux-musl"
+          mkdir -p "$RUNNER_TEMP/rg"
+          curl -fsSL --retry 3 "https://github.com/BurntSushi/ripgrep/releases/download/${rg_version}/${rg_release}.tar.gz" |
+            tar -xzf - -C "$RUNNER_TEMP/rg" --strip-components=1 "${rg_release}/rg"
+          echo "$RUNNER_TEMP/rg" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/rg/rg" --version
 
       # Over what the push or pull request changed, which is what the hooks
       # would have seen at commit time. --all-files would fail a push on every
