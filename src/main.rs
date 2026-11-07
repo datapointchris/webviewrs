@@ -170,9 +170,9 @@ fn main() {
 
     let socket_path = get_socket_path(&data_dir);
 
-    // Check if another instance is running
+    // Check if another instance is running. The line is a status message, so it goes to stderr.
     if try_focus_existing(&socket_path) {
-        println!("Focused existing instance");
+        eprintln!("Focused existing instance");
         return;
     }
 

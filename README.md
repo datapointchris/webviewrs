@@ -75,7 +75,7 @@ variable is unset, the socket sits beside the profile directories instead. Its f
 a Unix socket path can hold. A profile under another `$XDG_DATA_HOME` has a socket of its own.
 
 A live instance takes the `focus` message and raises its window. The new process prints `Focused
-existing instance` and exits 0 without opening its URL. When the connect fails, any socket file
+existing instance` on stderr and exits 0 without opening its URL. When the connect fails, any socket file
 there is stale, so the new instance deletes it and binds its own. A clean close removes the socket.
 
 A bind that fails prints the socket's path and the error on stderr. That window still opens, and
