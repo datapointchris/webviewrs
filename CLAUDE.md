@@ -74,6 +74,22 @@ A `target="_blank"` link or a `window.open` call goes to the default browser thr
 crate, and the handler refuses the window. wry drops these requests silently when no handler is
 set. The app never opens a second webview window.
 
+## Every external effect has one door
+
+Anything that leaves the process goes through one named function in `src/main.rs`, and every
+caller uses it.
+
+- **The profile directory** is created only by `create_profile_dir`. WebKit then writes the
+  profile's cookies and storage into it, through the `WebContext` built on that path.
+- **The single-instance socket** is reached only through its helpers. `try_focus_existing`
+  connects and sends `focus`. `bind_instance_socket` creates the socket's directory and binds.
+  `remove_instance_socket` deletes the file, both for a stale socket before a bind and on a clean
+  close. `start_instance_listener` reads requests on the bound socket.
+- **The system browser** is started only by `open_in_system_browser`, from the new-window handler.
+
+The code makes no network call of its own and runs no subprocess beyond the browser hand-off. The
+webview's own page loads are WebKit's.
+
 ## A change is checked by running it
 
 The crate has no tests, so `cargo test` in CI runs nothing. Behavior is checked by launching the

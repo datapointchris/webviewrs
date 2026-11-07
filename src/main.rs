@@ -97,6 +97,11 @@ fn profiles_dir() -> PathBuf {
     dirs::data_dir().unwrap_or_else(|| PathBuf::from(".")).join("webviewrs")
 }
 
+/// Create a profile's directory, and the directory holding every profile, if missing.
+fn create_profile_dir(data_dir: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(data_dir)
+}
+
 /// The socket a profile's window takes focus requests on, in `$XDG_RUNTIME_DIR/webviewrs/` or
 /// beside the profiles where that is unset. A Unix socket path holds at most 107 bytes, so the file
 /// is named for the FNV-1a hash of the profile directory's path rather than for the app name.
@@ -128,8 +133,19 @@ fn bind_instance_socket(socket_path: &Path) -> std::io::Result<UnixListener> {
     if let Some(dir) = socket_path.parent() {
         std::fs::create_dir_all(dir)?;
     }
-    let _ = std::fs::remove_file(socket_path);
+    remove_instance_socket(socket_path);
     UnixListener::bind(socket_path)
+}
+
+/// Delete a profile's socket file. A missing file is the goal, so a failed removal is ignored.
+fn remove_instance_socket(socket_path: &Path) {
+    let _ = std::fs::remove_file(socket_path);
+}
+
+/// Hand a URL to the system's default browser. A failure leaves the link doing nothing, which is
+/// what the webview would do without a handler.
+fn open_in_system_browser(url: &str) {
+    let _ = open::that(url);
 }
 
 /// Start listening for focus requests from other instances
@@ -165,8 +181,7 @@ fn main() {
     }
     let data_dir = profiles_dir().join(dir_name);
 
-    // Ensure data directory exists
-    std::fs::create_dir_all(&data_dir).expect("Failed to create data directory");
+    create_profile_dir(&data_dir).expect("Failed to create data directory");
 
     let socket_path = get_socket_path(&data_dir);
 
@@ -224,7 +239,7 @@ fn main() {
     let mut builder = WebViewBuilder::with_web_context(&mut web_context)
         .with_url(&args.url)
         .with_new_window_req_handler(|url| {
-            let _ = open::that(&url);
+            open_in_system_browser(&url);
             false
         });
 
@@ -271,7 +286,7 @@ fn main() {
                 ..
             } => {
                 if let Some(path) = &owned_socket {
-                    let _ = std::fs::remove_file(path);
+                    remove_instance_socket(path);
                 }
                 *control_flow = ControlFlow::Exit;
             }
