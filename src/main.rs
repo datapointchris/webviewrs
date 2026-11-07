@@ -25,7 +25,9 @@ profile. Launching a name that is already open focuses its window.
 
 Examples:
   webviewrs -n rss -t RSS --dark https://rss.example.com
-  webviewrs https://example.com")]
+      a site you log in to, kept under the name rss
+  webviewrs https://example.com
+      a one-off window, named for its URL")]
 struct Args {
     /// URL to open
     url: String,
@@ -184,10 +186,12 @@ fn main() {
             None
         }
     };
-    // Only the instance that bound the socket removes it on close.
+    // A launch whose bind failed leaves the socket alone on close, because another instance may be
+    // listening on it.
     let owned_socket = listener.as_ref().map(|_| socket_path.clone());
 
-    // Initialize GTK (required wherever wry builds on GTK, before creating WebContext)
+    // tao initializes GTK only when the event loop is built, and gtk-rs panics on a GTK call
+    // before that: WebContext::new and the --dark settings lookup both are.
     #[cfg(gtk)]
     {
         gtk::init().expect("Failed to initialize GTK");
