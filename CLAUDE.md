@@ -38,35 +38,21 @@ any build script runs.
 
 ## An app name is one profile and one window
 
-The app name is `-n`, else the title, else the URL. It names a directory under `webviewrs/` in the
-platform's data directory, which holds the webview's storage. So changing `-t` on an app launched
-without `-n` starts an empty profile. The old logins stay in the old directory.
+The README's sections `An app name is one profile and one window` and `A name that is open takes
+the launch, through its socket` hold the rules a user sees: how a name is chosen and sanitized,
+the cut of a long name, where the socket lives, and what a stale socket or a failed bind does.
+These are what a change to that code has to keep true:
 
-The name is sanitized before it becomes a directory. Every character that is not alphanumeric,
-`-` or `_` becomes `_`, outer underscores are trimmed, and the result is lowercased. Names that
-sanitize alike, such as `RSS` and `rss`, share one profile and one window. A name with no letter,
-digit or hyphen sanitizes to nothing, and an empty directory name would make that profile the
-`webviewrs/` directory itself. `main` refuses it before anything touches disk, with one line on
-stderr naming the name and its source, and exits 2, which is clap's usage-error code.
-
-A sanitized name over 255 bytes, Linux's limit for one path component, keeps its start and ends
-in a hyphen and the 16-digit FNV-1a hash of the whole sanitized name, at most 255 bytes in all.
-The start is cut on a character boundary. A name that fits is never cut, so its directory is the
-sanitized name exactly. The hash is FNV-1a rather than std's hasher because std's output may
-change between Rust releases, and a changed hash would strand every long-named profile's logins.
-
-A launch first connects to the profile's socket. It is `$XDG_RUNTIME_DIR/webviewrs/<hash>.sock`,
-or the same file name beside the profiles where `dirs::runtime_dir` finds no runtime directory. The
-hash is the FNV-1a of the profile directory's path. A Unix socket path cannot pass 107 bytes, and
-a hashed name keeps the path's length independent of the app name. Hashing the whole path also
-keeps a run under a throwaway `$XDG_DATA_HOME` from focusing a real profile's window.
-
-A live instance takes the `focus` message and focuses its window, and the new process exits 0
-without opening its URL. When the connect fails, any socket file there is stale, so the new
-instance deletes it and binds its own. The bind happens before the window is built. A failed bind
-prints the path and the error on stderr, and that instance runs without a listener, so the next
-launch of that name opens a second window. Only the instance that bound the socket removes it on a
-clean close.
+- **An empty sanitized name is refused in `main`, before anything touches disk.** An empty
+  directory name would make the profile the `webviewrs/` directory itself. The exit code is 2,
+  clap's usage-error code.
+- **`profile_dir_name` cuts a long name on a character boundary**, so a multi-byte character at
+  the cut never splits.
+- **Both hashes come from `fnv1a_hex`**, whose docstring says why it is not std's hasher. A changed
+  hash moves every long-named profile and every socket, stranding their logins.
+- **`get_socket_path`'s docstring says why the socket is named for a hash of the profile's path.**
+  `main`'s comments say why the bind comes before the window and why only the instance that bound
+  the socket removes it.
 
 ## A new-window request opens the system browser
 
