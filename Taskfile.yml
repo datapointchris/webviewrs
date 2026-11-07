@@ -1,0 +1,46 @@
+version: '3'
+
+tasks:
+  default:
+    desc: List the tasks
+    silent: true
+    cmds:
+      - task --list
+
+  setup:
+    desc: Check the tools a build needs, then install the git hooks
+    preconditions:
+      - sh: command -v cargo
+        msg: cargo is not installed; rustup installs it, and rust-toolchain.toml pins the version
+      - sh: command -v pre-commit
+        msg: pre-commit is not installed
+      - sh: pkg-config --exists webkit2gtk-4.1
+        msg: the WebKitGTK 4.1 development files are missing; the README's Install section lists the packages
+    cmds:
+      - pre-commit install --hook-type pre-commit --hook-type commit-msg
+
+  build:
+    desc: Build the debug binary into target/
+    cmds:
+      - cargo build
+
+  test:
+    desc: Run the cargo test suite
+    cmds:
+      - cargo test
+
+  lint:
+    desc: Check formatting and run clippy with warnings as errors, writing no file
+    cmds:
+      - cargo fmt --check
+      - cargo clippy --all-targets --all-features -- -D warnings
+
+  format:
+    desc: Rewrite the Rust sources with cargo fmt
+    cmds:
+      - cargo fmt
+
+  install:
+    desc: Install this checkout's build into cargo's bin directory, where the release installs
+    cmds:
+      - cargo install --path . --locked

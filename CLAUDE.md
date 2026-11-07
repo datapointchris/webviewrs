@@ -78,6 +78,9 @@ webview's own page loads are WebKit's.
 
 ## A change is checked by running it
 
+`task --list` shows the developer commands: `setup`, `build`, `test`, `lint`, `format` and
+`install`. `task lint` runs the same `cargo fmt --check` and clippy flags the commit hook runs.
+
 The crate has no tests, so `cargo test` in CI runs nothing. Behavior is checked by launching the
 binary on a display, under a throwaway name: `cargo run -- -n scratch https://example.com`. A name
 that is already open, such as an installed copy's, gets focused, and the new build exits before
