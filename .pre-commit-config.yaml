@@ -17,7 +17,7 @@ repos:
     hooks:
       # --unsafe parses instead of safe_load'ing. Every mkdocs-material repo
       # carries `!!python/name:material.extensions.emoji.twemoji`, which
-      # safe_load can never construct — five repos fail this hook without it.
+      # safe_load can never construct — a repo carrying that tag fails this hook without it.
       # The alternative is excluding mkdocs.yml, which checks strictly less.
       - id: check-yaml
         args: [--unsafe]
@@ -91,8 +91,8 @@ repos:
   # The guard distinguishes "this repo has no tests" from "this repo has tests
   # and bats is missing". Only the first is allowed to pass: a bare `bats
   # tests/` under language: system would be the second hook here to report
-  # success because its tool was absent. The first hid seven shellcheck
-  # findings behind a green run.
+  # success because its tool was absent. The first hid shellcheck findings
+  # behind a green run.
   #
   # The unset clears every variable git reads to find a repository. A commit
   # from a linked worktree exports GIT_DIR and GIT_INDEX_FILE into each hook,
