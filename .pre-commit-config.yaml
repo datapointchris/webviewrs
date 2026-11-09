@@ -11,6 +11,37 @@ repos:
         stages: [commit-msg]
         args: [--strict]
 
+# generated:ci-skip-marker - Refuse a commit message that would skip CI
+  - repo: local
+    hooks:
+      - id: no-ci-skip-marker
+        name: Refuse a commit message that would skip CI
+        # A head commit whose message holds a skip marker starts no push or
+        # pull_request run, and nothing reports a run that never started. A
+        # message that only quotes the marker while describing it skips the run
+        # all the same, and so does a merge commit taking a pull request's
+        # description as its message.
+        #
+        # These are the documented spellings, and no others:
+        #   GitHub, "Skipping workflow runs": [skip ci], [ci skip], [no ci],
+        #   [skip actions] and [actions skip] anywhere in the message, or a
+        #   skip-checks:true or skip-checks: true trailer.
+        #   Bitbucket Pipelines, "Pipeline start conditions": [skip ci] and
+        #   [ci skip]. Its knowledge base says any other variant runs the build.
+        # Neither documents whether case matters, so every case is refused. A
+        # wrong refusal costs a reword, and a missed marker costs the run.
+        #
+        # The trailer is matched only as a line of its own, because only a
+        # trailer skips the run. The same words inside a sentence do not.
+        #
+        # $HOME is not usable here and no script is either: this has to run on
+        # any clone, so the whole check is inline. pre-commit execs entry without
+        # a shell, hence `bash -c … --`, after which $1 is the message file.
+        # Comments are stripped first, because git discards them.
+        entry: bash -c 'grep -vE "^#" "$1" | grep -qiE -e "\[(skip ci|ci skip|no ci|skip actions|actions skip)\]" -e "^[[:space:]]*skip-checks:[ ]?true[[:space:]]*$" && { echo "This message holds a CI skip marker, so no CI run would start for this commit."; echo "Reword it to describe the marker rather than quote it."; exit 1; }; exit 0' --
+        language: system
+        stages: [commit-msg]
+
 # generated:file-checks - File format and basic checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
