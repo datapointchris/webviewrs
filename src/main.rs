@@ -294,3 +294,51 @@ fn main() {
         }
     });
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sanitize_name_keeps_word_characters_and_folds_the_rest() {
+        assert_eq!(sanitize_name("RSS"), "rss");
+        assert_eq!(sanitize_name("New Music"), "new_music");
+        assert_eq!(sanitize_name(" my-app_1 "), "my-app_1");
+        assert_eq!(sanitize_name("https://example.com"), "https___example_com");
+        assert_eq!(sanitize_name("///"), "");
+    }
+
+    // A changed hash moves every long-named profile and every socket, so the published FNV-1a
+    // 64-bit vectors pin it.
+    #[test]
+    fn fnv1a_hex_matches_the_published_vectors() {
+        assert_eq!(fnv1a_hex(b""), "cbf29ce484222325");
+        assert_eq!(fnv1a_hex(b"a"), "af63dc4c8601ec8c");
+        assert_eq!(fnv1a_hex(b"foobar"), "85944171f73967e8");
+    }
+
+    #[test]
+    fn profile_dir_name_keeps_a_name_that_fits_whole() {
+        let name = "a".repeat(NAME_MAX);
+        assert_eq!(profile_dir_name(&name), name);
+    }
+
+    #[test]
+    fn profile_dir_name_cuts_a_long_name_and_appends_its_hash() {
+        let name = "a".repeat(300);
+        let dir = profile_dir_name(&name);
+        assert_eq!(dir.len(), NAME_MAX);
+        assert_eq!(dir, format!("{}-{}", "a".repeat(238), fnv1a_hex(name.as_bytes())));
+
+        let other = format!("{}b", "a".repeat(299));
+        assert_ne!(profile_dir_name(&other), dir);
+    }
+
+    #[test]
+    fn profile_dir_name_cuts_on_a_character_boundary() {
+        // Three bytes each, so byte 238 falls inside a character and the cut steps back to 237.
+        let name = "日".repeat(100);
+        let dir = profile_dir_name(&name);
+        assert_eq!(dir, format!("{}-{}", "日".repeat(79), fnv1a_hex(name.as_bytes())));
+    }
+}

@@ -100,9 +100,10 @@ cargo build                                   # needs the system packages under 
 cargo run -- -n scratch https://example.com   # a throwaway name, kept apart from real profiles
 ```
 
-The crate has no tests, so a change is checked by launching it on a display. A name that is already
-open, such as an installed copy's, gets focused, and the new build exits before drawing anything. A
-throwaway name also keeps the run out of a real profile's cookies.
+`cargo test` covers how an app name becomes a profile directory. The window itself is checked by
+launching it on a display. A name that is already open, such as an installed copy's, gets focused,
+and the new build exits before drawing anything. A throwaway name also keeps the run out of a real
+profile's cookies.
 
 CI cuts a release from every push to `main` that carries a releasable conventional commit. The
 release writes the version into `Cargo.toml`, so a change never edits it. The notes are each GitHub
