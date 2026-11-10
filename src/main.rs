@@ -92,9 +92,16 @@ fn profile_dir_name(name: &str) -> String {
     format!("{}{suffix}", &sanitized[..end])
 }
 
-/// The directory holding every profile.
-fn profiles_dir() -> PathBuf {
-    dirs::data_dir().unwrap_or_else(|| PathBuf::from(".")).join("webviewrs")
+/// The directory holding every profile, under the platform's data directory. None where there is
+/// no data directory, as on Linux with neither `XDG_DATA_HOME` nor a home directory.
+fn profiles_dir() -> Option<PathBuf> {
+    dirs::data_dir().map(|dir| dir.join("webviewrs"))
+}
+
+/// Print a failure on stderr, under the program's name, and exit 1.
+fn exit_with_error(message: &str) -> ! {
+    eprintln!("webviewrs: {message}");
+    std::process::exit(1);
 }
 
 /// Create a profile's directory, and the directory holding every profile, if missing.
@@ -106,8 +113,8 @@ fn create_profile_dir(data_dir: &Path) -> std::io::Result<()> {
 /// beside the profiles where that is unset. A Unix socket path holds at most 107 bytes, so the file
 /// is named for the FNV-1a hash of the profile directory's path rather than for the app name.
 /// Hashing the whole path keeps a profile under another data directory from answering for this one.
-fn get_socket_path(data_dir: &Path) -> PathBuf {
-    let dir = dirs::runtime_dir().map_or_else(profiles_dir, |runtime| runtime.join("webviewrs"));
+fn get_socket_path(profiles: &Path, data_dir: &Path) -> PathBuf {
+    let dir = dirs::runtime_dir().map_or_else(|| profiles.to_path_buf(), |runtime| runtime.join("webviewrs"));
     dir.join(format!("{}.sock", fnv1a_hex(data_dir.as_os_str().as_bytes())))
 }
 
@@ -179,11 +186,19 @@ fn main() {
         );
         std::process::exit(2);
     }
-    let data_dir = profiles_dir().join(dir_name);
+    let Some(profiles) = profiles_dir() else {
+        exit_with_error("cannot find a data directory to keep profiles in; set XDG_DATA_HOME or HOME and launch again");
+    };
+    let data_dir = profiles.join(dir_name);
 
-    create_profile_dir(&data_dir).expect("Failed to create data directory");
+    if let Err(err) = create_profile_dir(&data_dir) {
+        exit_with_error(&format!(
+            "cannot create the profile directory {}: {err}; make its parent writable, or set XDG_DATA_HOME to a writable directory",
+            data_dir.display()
+        ));
+    }
 
-    let socket_path = get_socket_path(&data_dir);
+    let socket_path = get_socket_path(&profiles, &data_dir);
 
     // Check if another instance is running. The line is a status message, so it goes to stderr.
     if try_focus_existing(&socket_path) {
@@ -209,7 +224,11 @@ fn main() {
     // before that: WebContext::new and the --dark settings lookup both are.
     #[cfg(gtk)]
     {
-        gtk::init().expect("Failed to initialize GTK");
+        if let Err(err) = gtk::init() {
+            exit_with_error(&format!(
+                "cannot start GTK: {err}; it needs a display, so launch from a graphical session where DISPLAY or WAYLAND_DISPLAY is set"
+            ));
+        }
 
         // Set dark mode preference if requested
         if args.dark {
@@ -234,7 +253,11 @@ fn main() {
         .with_title(&title)
         .with_inner_size(tao::dpi::LogicalSize::new(args.width, args.height))
         .build(&event_loop)
-        .expect("Failed to create window");
+        .unwrap_or_else(|err| {
+            exit_with_error(&format!(
+                "cannot create the window: {err}; launch from a graphical session where DISPLAY or WAYLAND_DISPLAY is set"
+            ))
+        });
 
     let mut builder = WebViewBuilder::with_web_context(&mut web_context)
         .with_url(&args.url)
@@ -264,15 +287,21 @@ fn main() {
     }
 
     #[cfg(not(gtk))]
-    let _webview = builder.build(&window).expect("Failed to build webview");
+    let webview = builder.build(&window);
 
     #[cfg(gtk)]
-    let _webview = {
+    let webview = {
         use tao::platform::unix::WindowExtUnix;
         use wry::WebViewBuilderExtUnix;
-        let vbox = window.default_vbox().unwrap();
-        builder.build_gtk(vbox).expect("Failed to build webview")
+        let vbox = window.default_vbox().expect("tao builds each window with a default GTK box");
+        builder.build_gtk(vbox)
     };
+
+    let _webview = webview.unwrap_or_else(|err| {
+        exit_with_error(&format!(
+            "cannot build the webview: {err}; it needs WebKitGTK 4.1, installed with `sudo pacman -S webkit2gtk-4.1` on Arch or `sudo apt-get install libwebkit2gtk-4.1-0` on Debian and Ubuntu"
+        ))
+    });
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
