@@ -11,15 +11,17 @@ window from tao, and on Linux the engine underneath is WebKitGTK.
 ## Install
 
 ```bash
-sudo pacman -S webkit2gtk-4.1 noto-fonts-emoji   # Arch: WebKitGTK 4.1 brings GTK 3; the font draws emoji
-cargo binstall webviewrs                          # the prebuilt binary attached to the GitHub release
-cargo install webviewrs                           # or build the crates.io release from source
+sudo pacman -S webkit2gtk-4.1 noto-fonts-emoji                       # Arch: WebKitGTK 4.1 brings GTK 3; the font draws emoji
+sudo apt-get install libwebkit2gtk-4.1-0 fonts-noto-color-emoji      # Debian, Ubuntu: the runtime libraries the prebuilt binary loads
+cargo binstall webviewrs                                             # the prebuilt binary attached to the GitHub release
+cargo install webviewrs                                              # or build the crates.io release from source
 ```
 
 The binary links WebKitGTK 4.1 and GTK 3 when it loads, so the system packages come before either
 cargo command. Arch packages carry their headers, so the `pacman` line also covers a source build.
-On Debian and Ubuntu, a source build needs the development packages CI installs, listed in the
-`install system dependencies` step of [validate.yml](.github/workflows/validate.yml).
+The `apt-get` line covers the prebuilt binary only. On Debian and Ubuntu, a source build also needs
+the development packages CI installs, listed in the `install system dependencies` step of
+[validate.yml](.github/workflows/validate.yml).
 
 The release attaches one prebuilt binary, for `x86_64-unknown-linux-gnu`. `cargo binstall` is a
 separate tool, installed with `cargo install cargo-binstall`.
