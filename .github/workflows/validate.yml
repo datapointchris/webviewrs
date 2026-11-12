@@ -1,4 +1,4 @@
-# forge-toolchain: 56
+# forge-toolchain: 58
 name: CI
 
 on:
@@ -42,14 +42,19 @@ jobs:
       # vulnerability and only prints an unmaintained or unsound crate, which
       # is a warning in cargo-audit's own default. The release is a static musl
       # binary, so the job needs no cargo install. The tag holds a slash, which
-      # the download URL carries as %2F.
+      # the download URL carries as %2F. The archive is checked against the
+      # sha256 the declaration records before it is unpacked, because a release
+      # asset can be replaced after its version was pinned.
       - name: Vulnerabilities
         run: |
           cargo_audit_version="0.22.2"
+          cargo_audit_sha256="7fb9497f8594b389e5fce5ef9b92db08432996895b2e0c5a0167a69ed445c428"
           release="cargo-audit-x86_64-unknown-linux-musl-v${cargo_audit_version}"
           mkdir -p "$RUNNER_TEMP/cargo-audit"
-          curl -fsSL --retry 3 "https://github.com/rustsec/rustsec/releases/download/cargo-audit%2Fv${cargo_audit_version}/${release}.tgz" \
-            | tar -xzf - -C "$RUNNER_TEMP/cargo-audit" --strip-components=1 "${release}/cargo-audit"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/cargo-audit/${release}.tgz" \
+            "https://github.com/rustsec/rustsec/releases/download/cargo-audit%2Fv${cargo_audit_version}/${release}.tgz"
+          echo "${cargo_audit_sha256}  $RUNNER_TEMP/cargo-audit/${release}.tgz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/cargo-audit/${release}.tgz" -C "$RUNNER_TEMP/cargo-audit" --strip-components=1 "${release}/cargo-audit"
           "$RUNNER_TEMP/cargo-audit/cargo-audit" --version
           "$RUNNER_TEMP/cargo-audit/cargo-audit" audit
 
@@ -143,14 +148,28 @@ jobs:
       # search with them. A self-hosted runner image ships neither, so every
       # test reaching one exits 127. Each is pinned to the release developers
       # run, as jq is.
+      #
+      # A version names a release, not its bytes. A release asset can be
+      # replaced and a tag moved after the pin was chosen, so each download is
+      # checked against the sha256 the declaration records, and each clone's
+      # HEAD against the commit its tag pointed at. A mismatch fails the job
+      # before anything it fetched runs. A helper library already on a
+      # self-hosted runner's disk is checked too, because it may predate the
+      # check.
       - name: Set up bats
         run: |
           bats_version="1.14.0"
+          bats_commit="eb7f42f8d608ac693d7a4b67474f6714ea68cfc5"
           bats_support_version="0.3.0"
+          bats_support_commit="24a72e14349690bcbf7c151b9d2d1cdd32d36eb1"
           bats_assert_version="2.2.4"
+          bats_assert_commit="f1e9280eaae8f86cbe278a687e6ba755bc802c1a"
           jq_version="1.8.2"
+          jq_sha256="b1c22172dd303f3be49e935aa56aa48a8b7a46e0bc838b4997d3bb451495870f"
           yq_version="4.54.1"
+          yq_sha256="8e34fc298390875de416e6a4afcb8cabeceb25d9aa8506c1a2f9353cf702ea5f"
           rg_version="15.2.0"
+          rg_sha256="33e15bcf1624b25cdd2a55813a47a2f95dbe126268203e76aa6a585d1e7b149c"
 
           if ! compgen -G "tests/*.bats" > /dev/null; then
             if [ -n "$(find tests -name '*.bats' -print -quit 2>/dev/null)" ]; then
@@ -159,21 +178,32 @@ jobs:
             exit 0
           fi
 
+          at_commit() {
+            actual=$(git -C "$1" rev-parse HEAD)
+            [ "$actual" = "$2" ] && return 0
+            echo "::error::$1 is at commit $actual, and the pin names $2"
+            return 1
+          }
+
           git clone --depth 1 --branch "v${bats_version}" \
             https://github.com/bats-core/bats-core.git "$RUNNER_TEMP/bats"
+          at_commit "$RUNNER_TEMP/bats" "$bats_commit"
           echo "$RUNNER_TEMP/bats/bin" >> "$GITHUB_PATH"
 
           lib="$HOME/.local/lib"
           mkdir -p "$lib"
-          for helper in "bats-support:${bats_support_version}" "bats-assert:${bats_assert_version}"; do
-            name="${helper%%:*}"
-            release="${name}-v${helper#*:}"
+          for helper in "bats-support:${bats_support_version}:${bats_support_commit}" \
+            "bats-assert:${bats_assert_version}:${bats_assert_commit}"; do
+            IFS=: read -r name version commit <<< "$helper"
+            release="${name}-v${version}"
             if [ ! -d "$lib/$release" ]; then
               staged=$(mktemp -d "$lib/.$release.XXXXXX")
-              git clone --depth 1 --branch "v${helper#*:}" \
+              git clone --depth 1 --branch "v${version}" \
                 "https://github.com/bats-core/$name.git" "$staged"
+              at_commit "$staged" "$commit" || { rm -rf "$staged"; exit 1; }
               mv -T "$staged" "$lib/$release" 2>/dev/null || rm -rf "$staged"
             fi
+            at_commit "$lib/$release" "$commit"
             [ -L "$lib/$name" ] || rm -rf "${lib:?}/$name"
             ln -s "$release" "$lib/.$name.$$"
             mv -T "$lib/.$name.$$" "$lib/$name"
@@ -182,6 +212,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/jq"
           curl -fsSL --retry 3 -o "$RUNNER_TEMP/jq/jq" \
             "https://github.com/jqlang/jq/releases/download/jq-${jq_version}/jq-linux-amd64"
+          echo "${jq_sha256}  $RUNNER_TEMP/jq/jq" | sha256sum -c -
           chmod +x "$RUNNER_TEMP/jq/jq"
           echo "$RUNNER_TEMP/jq" >> "$GITHUB_PATH"
           "$RUNNER_TEMP/jq/jq" --version
@@ -189,14 +220,18 @@ jobs:
           mkdir -p "$RUNNER_TEMP/yq"
           curl -fsSL --retry 3 -o "$RUNNER_TEMP/yq/yq" \
             "https://github.com/mikefarah/yq/releases/download/v${yq_version}/yq_linux_amd64"
+          echo "${yq_sha256}  $RUNNER_TEMP/yq/yq" | sha256sum -c -
           chmod +x "$RUNNER_TEMP/yq/yq"
           echo "$RUNNER_TEMP/yq" >> "$GITHUB_PATH"
           "$RUNNER_TEMP/yq/yq" --version
 
           rg_release="ripgrep-${rg_version}-x86_64-unknown-linux-musl"
           mkdir -p "$RUNNER_TEMP/rg"
-          curl -fsSL --retry 3 "https://github.com/BurntSushi/ripgrep/releases/download/${rg_version}/${rg_release}.tar.gz" |
-            tar -xzf - -C "$RUNNER_TEMP/rg" --strip-components=1 "${rg_release}/rg"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/rg/${rg_release}.tar.gz" \
+            "https://github.com/BurntSushi/ripgrep/releases/download/${rg_version}/${rg_release}.tar.gz"
+          echo "${rg_sha256}  $RUNNER_TEMP/rg/${rg_release}.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/rg/${rg_release}.tar.gz" -C "$RUNNER_TEMP/rg" --strip-components=1 "${rg_release}/rg"
+          rm "$RUNNER_TEMP/rg/${rg_release}.tar.gz"
           echo "$RUNNER_TEMP/rg" >> "$GITHUB_PATH"
           "$RUNNER_TEMP/rg/rg" --version
 

@@ -9,10 +9,10 @@ on:
 permissions:
   contents: read
 
-# Two pushes to main inside one run's window would otherwise race. Both runs
-# resolve the same version, and the later one fails pushing its tag or its
-# version commit.
+# Two pushes to main inside one run's window would otherwise race, because
+# both runs resolve the same next version from the same newest tag.
 # Never cancel-in-progress: a canceled release can leave a tag with no release.
+# A newer push replaces a waiting run, so a burst of pushes releases once.
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
