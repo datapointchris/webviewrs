@@ -409,6 +409,26 @@ fn main() {
 mod tests {
     use super::*;
 
+    // A reader who reaches a command through its help needs a command to copy, so every node in
+    // the tree carries an Examples block in its after_help, and a new subcommand without one fails.
+    #[test]
+    fn every_command_in_the_tree_carries_examples() {
+        use clap::CommandFactory;
+        fn walk(cmd: &clap::Command, path: &str, missing: &mut Vec<String>) {
+            let path = format!("{path} {}", cmd.get_name()).trim().to_owned();
+            let after_help = cmd.get_after_help().map(ToString::to_string).unwrap_or_default();
+            if !after_help.contains("Examples:\n  webviewrs ") {
+                missing.push(path.clone());
+            }
+            for sub in cmd.get_subcommands() {
+                walk(sub, &path, missing);
+            }
+        }
+        let mut missing = Vec::new();
+        walk(&Args::command(), "", &mut missing);
+        assert!(missing.is_empty(), "commands with no Examples block: {missing:?}");
+    }
+
     #[test]
     fn a_url_opens_a_window_and_paths_runs_the_subcommand() {
         let open = Args::try_parse_from(["webviewrs", "https://example.com"]).unwrap();
