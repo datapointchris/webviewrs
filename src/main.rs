@@ -29,7 +29,8 @@ use gtk::prelude::*;
 #[command(after_help = "\
 Name every app you log in to with -n. The name holds its cookies and storage.
 Without one the title or URL is the name, so a changed -t opens an empty
-profile. Launching a name that is already open focuses its window.
+profile. Launching a name that is already open focuses its window and does
+not open the URL.
 
 Examples:
   webviewrs -n rss -t RSS --dark https://rss.example.com
