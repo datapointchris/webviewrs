@@ -2523,11 +2523,13 @@ dependencies = [
 name = "webviewrs"
 version = "1.2.0"
 dependencies = [
+ "cfg-expr",
  "clap",
  "dirs",
  "gtk",
  "open",
  "tao",
+ "toml",
  "wry",
 ]
 

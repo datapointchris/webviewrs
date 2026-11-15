@@ -16,7 +16,11 @@ clap = { version = "4", features = ["derive", "wrap_help"] }
 dirs = "6"
 open = "5"
 
-# wry builds on GTK on exactly these platforms, the set build.rs emits as `gtk`.
+[build-dependencies]
+cfg-expr = { version = "0.15", features = ["targets"] }
+toml = "0.8"
+
+# The one list of platforms where wry builds on GTK. build.rs reads this cfg and emits `gtk`.
 [target.'cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))'.dependencies]
 gtk = "0.18"
 

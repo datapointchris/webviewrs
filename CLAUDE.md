@@ -19,10 +19,10 @@ before uploading it.
 
 ## Linux and the BSDs take GTK's path through `main`
 
-wry builds its webview on GTK on Linux, DragonFly, FreeBSD, NetBSD and OpenBSD. `build.rs` emits
-those five as the `gtk` cfg, which `main.rs` reads, so a BSD runs the Linux path whole. The `gtk`
-dependency's target table in `Cargo.toml` names them again, because Cargo reads that table before
-any build script runs.
+wry builds its webview on GTK on Linux and the BSDs. The `gtk` dependency's target table in
+`Cargo.toml` is the one list of those platforms, because Cargo resolves it before any build script
+runs. `build.rs` evaluates that table's cfg against the target with `cfg-expr` and emits `gtk`,
+which `main.rs` reads, so a BSD runs the Linux path whole.
 
 - **`gtk::init` runs by hand, before `WebContext::new`.** tao initializes GTK when the event loop
   is built, and the web context is created before that. gtk-rs panics on a GTK call made before
