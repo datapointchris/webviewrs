@@ -1,6 +1,6 @@
 [package]
 name = "webviewrs"
-version = "1.2.0"
+version = "1.2.1"
 edition = "2021"
 description = "Simple webview app that opens URLs in a minimal native window"
 authors = ["Chris Birch"]
