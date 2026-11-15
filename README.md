@@ -48,12 +48,14 @@ same command opens it again, with the profile's cookies and storage intact.
 ```bash
 webviewrs -n rss -t RSS --dark https://rss.example.com    # a reader, dark, under the name "rss"
 webviewrs -n youtube -t "New Music" --dark "https://www.youtube.com/playlist?list=ABC123"
+webviewrs paths -n rss                                     # where "rss" keeps its profile, socket and cache
 ```
 
-The name is `-n`, else the title `-t`, else the URL. It names a directory under `webviewrs/` in
-`$XDG_DATA_HOME`, which defaults to `~/.local/share`. That directory holds the webview's cookies
-and local storage. Changing `-t` on an app launched without `-n` starts an empty profile, and the
-old logins stay in the old directory. Pass `-n` for anything you log into.
+The name is `-n`, else the title `-t`, else the URL. It names the app's profile directory, which
+holds the webview's cookies and local storage. `webviewrs paths` takes the same `-n`, `-t` or URL
+and prints that directory on its `profile` line, opening nothing. Changing `-t` on an app launched
+without `-n` starts an empty profile, and the old logins stay in the old directory. Pass `-n` for
+anything you log into.
 
 The name is sanitized before it becomes a directory. Every character that is not alphanumeric, `-`
 or `_` becomes `_`, outer underscores are trimmed, and the result is lowercased. Names that sanitize
@@ -65,16 +67,15 @@ A sanitized name longer than 255 bytes, the most one path component holds, is cu
 its start, then a hyphen and a 16-digit hash of the whole sanitized name. Two long URLs that share
 a start still get two profiles.
 
-Two stores are shared by every name. WebKit's HTTP cache is in `$XDG_CACHE_HOME/webviewrs/`, which
-defaults to `~/.cache/webviewrs/`. Its HSTS list is `hsts-storage.sqlite`, beside the profile
-directories.
+Two stores are shared by every name. WebKit's HTTP cache is the `cache` line of `webviewrs paths`.
+Its HSTS list is `hsts-storage.sqlite`, in the directory that holds every profile directory.
 
 ## A name that is open takes the launch, through its socket
 
-A launch first connects to the profile's socket in `$XDG_RUNTIME_DIR/webviewrs/`. Where that
-variable is unset, the socket sits beside the profile directories instead. Its file name is a
-16-digit hash of the profile directory's path, so a long name never pushes it past the 107 bytes
-a Unix socket path can hold. A profile under another `$XDG_DATA_HOME` has a socket of its own.
+A launch first connects to the profile's socket, the `socket` line of `webviewrs paths`. Its file
+name is a 16-digit hash of the profile directory's path, so a long name never pushes it past the
+107 bytes a Unix socket path can hold. A profile under another data directory has a socket of its
+own.
 
 A live instance takes the `focus` message and raises its window. The new process prints `Focused
 existing instance` on stderr and exits 0 without opening its URL. When the connect fails, any socket file

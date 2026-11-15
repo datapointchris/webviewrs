@@ -4,7 +4,7 @@ use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
 use std::thread;
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use tao::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy},
@@ -18,6 +18,14 @@ use gtk::prelude::*;
 #[derive(Parser)]
 #[command(name = "webviewrs", version)]
 #[command(about = "Open a URL in a minimal native webview window")]
+// A URL and a subcommand never mix, so `webviewrs <URL>` opens a window and `webviewrs paths` runs
+// the subcommand. The URL is required only when no subcommand is given. clap's generated `help`
+// subcommand is off, so `paths` is the one word a URL cannot be.
+#[command(
+    args_conflicts_with_subcommands = true,
+    subcommand_negates_reqs = true,
+    disable_help_subcommand = true
+)]
 #[command(after_help = "\
 Name every app you log in to with -n. The name holds its cookies and storage.
 Without one the title or URL is the name, so a changed -t opens an empty
@@ -27,10 +35,16 @@ Examples:
   webviewrs -n rss -t RSS --dark https://rss.example.com
       a site you log in to, kept under the name rss
   webviewrs https://example.com
-      a one-off window, named for its URL")]
+      a one-off window, named for its URL
+  webviewrs paths -n rss
+      where the name rss keeps its profile, socket and cache")]
 struct Args {
+    #[command(subcommand)]
+    command: Option<Command>,
+
     /// URL to open
-    url: String,
+    #[arg(required = true)]
+    url: Option<String>,
 
     /// Window title (defaults to URL)
     #[arg(short, long)]
@@ -51,6 +65,47 @@ struct Args {
     /// Force dark mode
     #[arg(short, long)]
     dark: bool,
+}
+
+#[derive(Subcommand)]
+enum Command {
+    /// Print where an app keeps its profile, socket and cache
+    #[command(after_help = "\
+Each line is a label, then a path: profile, socket and cache. The app is named
+as a launch names it: -n, else -t, else the URL. Nothing is created.
+
+Examples:
+  webviewrs paths -n rss
+      where the app named rss keeps its cookies and storage
+  webviewrs paths https://example.com
+      the paths of a window launched with only that URL")]
+    Paths(PathsArgs),
+}
+
+#[derive(clap::Args)]
+#[command(group = clap::ArgGroup::new("app").required(true).multiple(true))]
+struct PathsArgs {
+    /// URL the app is launched with
+    #[arg(group = "app")]
+    url: Option<String>,
+
+    /// Window title the app is launched with
+    #[arg(short, long, group = "app")]
+    title: Option<String>,
+
+    /// App name the app is launched with
+    #[arg(short, long, group = "app")]
+    name: Option<String>,
+}
+
+/// The app name a profile is kept under: `-n`, else `-t`, else the URL. The second value names
+/// which one it came from, for the error a name with nothing usable in it gets.
+fn resolve_app_name(name: Option<&str>, title: Option<&str>, url: &str) -> (String, &'static str) {
+    match (name, title) {
+        (Some(name), _) => (name.to_owned(), "-n"),
+        (None, Some(title)) => (title.to_owned(), "-t"),
+        (None, None) => (url.to_owned(), "the URL"),
+    }
 }
 
 /// Sanitize a string to be safe for use as a directory name
@@ -102,6 +157,43 @@ fn profiles_dir() -> Option<PathBuf> {
 fn exit_with_error(message: &str) -> ! {
     eprintln!("webviewrs: {message}");
     std::process::exit(1);
+}
+
+/// The directory holding every profile, and this app's profile directory inside it. A name that
+/// sanitizes to nothing exits 2, and a platform with no data directory exits 1, each with the line
+/// saying how to launch again.
+fn locate_profile(app_name: &str, name_source: &str) -> (PathBuf, PathBuf) {
+    // An empty directory name would make this profile the directory that holds every profile.
+    let dir_name = profile_dir_name(app_name);
+    if dir_name.is_empty() {
+        eprintln!(
+            "webviewrs: the app name {app_name:?}, from {name_source}, has no letter, digit or hyphen to name a profile after; pass -n with one"
+        );
+        std::process::exit(2);
+    }
+    let Some(profiles) = profiles_dir() else {
+        exit_with_error("cannot find a data directory to keep profiles in; set XDG_DATA_HOME or HOME and launch again");
+    };
+    let data_dir = profiles.join(dir_name);
+    (profiles, data_dir)
+}
+
+/// WebKit's HTTP cache, which every profile shares: `webviewrs` under the platform's cache
+/// directory. WebKit creates and fills it, so this only names it.
+fn webkit_cache_dir() -> Option<PathBuf> {
+    dirs::cache_dir().map(|dir| dir.join("webviewrs"))
+}
+
+/// Print where an app keeps its profile, socket and cache, one labeled path a line. It resolves
+/// them through the functions a launch uses, and creates nothing.
+fn print_paths(args: &PathsArgs) {
+    let (app_name, name_source) = resolve_app_name(args.name.as_deref(), args.title.as_deref(), args.url.as_deref().unwrap_or_default());
+    let (profiles, data_dir) = locate_profile(&app_name, name_source);
+    println!("profile  {}", data_dir.display());
+    println!("socket   {}", get_socket_path(&profiles, &data_dir).display());
+    if let Some(cache) = webkit_cache_dir() {
+        println!("cache    {}", cache.display());
+    }
 }
 
 /// Create a profile's directory, and the directory holding every profile, if missing.
@@ -170,26 +262,15 @@ fn start_instance_listener(listener: UnixListener, proxy: EventLoopProxy<UserEve
 fn main() {
     let args = Args::parse();
 
-    let name_source = match (&args.name, &args.title) {
-        (Some(_), _) => "-n",
-        (None, Some(_)) => "-t",
-        (None, None) => "the URL",
-    };
-    let title = args.title.unwrap_or_else(|| args.url.clone());
-    let app_name = args.name.unwrap_or_else(|| title.clone());
-
-    // An empty directory name would make this profile the directory that holds every profile.
-    let dir_name = profile_dir_name(&app_name);
-    if dir_name.is_empty() {
-        eprintln!(
-            "webviewrs: the app name {app_name:?}, from {name_source}, has no letter, digit or hyphen to name a profile after; pass -n with one"
-        );
-        std::process::exit(2);
+    if let Some(Command::Paths(paths)) = &args.command {
+        print_paths(paths);
+        return;
     }
-    let Some(profiles) = profiles_dir() else {
-        exit_with_error("cannot find a data directory to keep profiles in; set XDG_DATA_HOME or HOME and launch again");
-    };
-    let data_dir = profiles.join(dir_name);
+    let url = args.url.expect("clap requires the URL when no subcommand is given");
+
+    let (app_name, name_source) = resolve_app_name(args.name.as_deref(), args.title.as_deref(), &url);
+    let title = args.title.unwrap_or_else(|| url.clone());
+    let (profiles, data_dir) = locate_profile(&app_name, name_source);
 
     if let Err(err) = create_profile_dir(&data_dir) {
         exit_with_error(&format!(
@@ -260,7 +341,7 @@ fn main() {
         });
 
     let mut builder = WebViewBuilder::with_web_context(&mut web_context)
-        .with_url(&args.url)
+        .with_url(&url)
         .with_new_window_req_handler(|url| {
             open_in_system_browser(&url);
             false
@@ -327,6 +408,35 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_url_opens_a_window_and_paths_runs_the_subcommand() {
+        let open = Args::try_parse_from(["webviewrs", "https://example.com"]).unwrap();
+        assert!(open.command.is_none());
+        assert_eq!(open.url.as_deref(), Some("https://example.com"));
+
+        let paths = Args::try_parse_from(["webviewrs", "paths", "-n", "rss"]).unwrap();
+        let Some(Command::Paths(paths)) = paths.command else {
+            panic!("paths parsed as a URL")
+        };
+        assert_eq!(paths.name.as_deref(), Some("rss"));
+
+        assert!(Args::try_parse_from(["webviewrs"]).is_err());
+        assert!(Args::try_parse_from(["webviewrs", "paths"]).is_err());
+    }
+
+    #[test]
+    fn resolve_app_name_takes_the_name_then_the_title_then_the_url() {
+        assert_eq!(
+            resolve_app_name(Some("rss"), Some("RSS"), "https://a.example"),
+            ("rss".to_owned(), "-n")
+        );
+        assert_eq!(resolve_app_name(None, Some("RSS"), "https://a.example"), ("RSS".to_owned(), "-t"));
+        assert_eq!(
+            resolve_app_name(None, None, "https://a.example"),
+            ("https://a.example".to_owned(), "the URL")
+        );
+    }
 
     #[test]
     fn sanitize_name_keeps_word_characters_and_folds_the_rest() {

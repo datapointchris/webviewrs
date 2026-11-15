@@ -43,9 +43,13 @@ the launch, through its socket` hold the rules a user sees: how a name is chosen
 the cut of a long name, where the socket lives, and what a stale socket or a failed bind does.
 These are what a change to that code has to keep true:
 
-- **An empty sanitized name is refused in `main`, before anything touches disk.** An empty
-  directory name would make the profile the `webviewrs/` directory itself. The exit code is 2,
-  clap's usage-error code.
+- **An empty sanitized name is refused in `locate_profile`, before anything touches disk.** An
+  empty directory name would make the profile the `webviewrs/` directory itself. The exit code is
+  2, clap's usage-error code.
+- **`webviewrs paths` prints the locations through the functions a launch uses**:
+  `resolve_app_name`, `locate_profile`, `get_socket_path` and `webkit_cache_dir`. The README
+  points at it rather than writing the paths out, so a moved location changes only the code. It
+  creates nothing.
 - **`profile_dir_name` cuts a long name on a character boundary**, so a multi-byte character at
   the cut never splits.
 - **Both hashes come from `fnv1a_hex`**, whose docstring says why it is not std's hasher. A changed
