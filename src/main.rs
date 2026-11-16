@@ -20,7 +20,8 @@ use gtk::prelude::*;
 #[command(about = "Open a URL in a minimal native webview window")]
 // A URL and a subcommand never mix, so `webviewrs <URL>` opens a window and `webviewrs paths` runs
 // the subcommand. The URL is required only when no subcommand is given. clap's generated `help`
-// subcommand is off, so `paths` is the one word a URL cannot be.
+// subcommand is off, so `paths` is the one subcommand, and any other word is refused by
+// `parse_url` before a profile is created for it.
 #[command(
     args_conflicts_with_subcommands = true,
     subcommand_negates_reqs = true,
@@ -43,8 +44,8 @@ struct Args {
     #[command(subcommand)]
     command: Option<Command>,
 
-    /// URL to open
-    #[arg(required = true)]
+    /// URL to open, with its scheme, such as https://example.com
+    #[arg(required = true, value_parser = parse_url)]
     url: Option<String>,
 
     /// Window title (defaults to URL)
@@ -97,6 +98,20 @@ struct PathsArgs {
     /// App name the app is launched with
     #[arg(short, long, group = "app")]
     name: Option<String>,
+}
+
+/// Accept a URL that opens with a scheme and a colon, as RFC 3986 spells one: a letter, then
+/// letters, digits, `+`, `-` or `.`. A bare word such as `help`, or a file path, would otherwise
+/// name a profile and create its directory before the webview fails to load it.
+fn parse_url(value: &str) -> Result<String, String> {
+    let scheme = value.split_once(':').map_or("", |(scheme, _)| scheme);
+    let mut chars = scheme.chars();
+    let starts_with_letter = chars.next().is_some_and(|c| c.is_ascii_alphabetic());
+    if starts_with_letter && chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.')) {
+        Ok(value.to_owned())
+    } else {
+        Err("not a URL; pass one with a scheme, such as https://example.com, or file:///path for a file".to_owned())
+    }
 }
 
 /// The app name a profile is kept under: `-n`, else `-t`, else the URL. The second value names
@@ -444,6 +459,8 @@ mod tests {
 
         assert!(Args::try_parse_from(["webviewrs"]).is_err());
         assert!(Args::try_parse_from(["webviewrs", "paths"]).is_err());
+        assert!(Args::try_parse_from(["webviewrs", "help"]).is_err());
+        assert!(Args::try_parse_from(["webviewrs", "./page.html"]).is_err());
     }
 
     #[test]
