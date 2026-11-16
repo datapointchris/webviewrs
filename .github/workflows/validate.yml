@@ -1,4 +1,4 @@
-# forge-toolchain: 59
+# forge-toolchain: 61
 name: CI
 
 on:
