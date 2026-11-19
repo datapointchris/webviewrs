@@ -21,11 +21,13 @@ use gtk::prelude::*;
 // A URL and a subcommand never mix, so `webviewrs <URL>` opens a window and `webviewrs paths` runs
 // the subcommand. The URL is required only when no subcommand is given. clap's generated `help`
 // subcommand is off, so `paths` is the one subcommand, and any other word is refused by
-// `parse_url` before a profile is created for it.
+// `parse_url` before a profile is created for it. A bare `webviewrs` or `webviewrs paths` prints
+// its help, because a missing argument leaves nothing to run and the help names what to pass.
 #[command(
     args_conflicts_with_subcommands = true,
     subcommand_negates_reqs = true,
-    disable_help_subcommand = true
+    disable_help_subcommand = true,
+    arg_required_else_help = true
 )]
 #[command(after_help = "\
 Name every app you log in to with -n. The name holds its cookies and storage.
@@ -72,6 +74,7 @@ struct Args {
 #[derive(Subcommand)]
 enum Command {
     /// Print where an app keeps its profile, socket and cache
+    #[command(arg_required_else_help = true)]
     #[command(after_help = "\
 Each line is a label, then a path: profile, socket and cache. The app is named
 as a launch names it: -n, else -t, else the URL. Nothing is created.
@@ -457,8 +460,10 @@ mod tests {
         };
         assert_eq!(paths.name.as_deref(), Some("rss"));
 
-        assert!(Args::try_parse_from(["webviewrs"]).is_err());
-        assert!(Args::try_parse_from(["webviewrs", "paths"]).is_err());
+        for bare in [&["webviewrs"][..], &["webviewrs", "paths"]] {
+            let err = Args::try_parse_from(bare).err().expect("a bare command parsed");
+            assert_eq!(err.kind(), clap::error::ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand);
+        }
         assert!(Args::try_parse_from(["webviewrs", "help"]).is_err());
         assert!(Args::try_parse_from(["webviewrs", "./page.html"]).is_err());
     }
