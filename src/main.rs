@@ -35,6 +35,10 @@ Without one the title or URL is the name, so a changed -t opens an empty
 profile. Launching a name that is already open focuses its window and does
 not open the URL.
 
+Each name's profile is one directory under $XDG_DATA_HOME/webviewrs, by
+default ~/.local/share/webviewrs, and webviewrs paths prints it. To reset an
+app, close its window and delete that directory. The next launch starts empty.
+
 Examples:
   webviewrs -n rss -t RSS --dark https://rss.example.com
       a site you log in to, kept under the name rss

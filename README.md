@@ -55,7 +55,8 @@ The name is `-n`, else the title `-t`, else the URL. It names the app's profile 
 holds the webview's cookies and local storage. `webviewrs paths` takes the same `-n`, `-t` or URL
 and prints that directory on its `profile` line, opening nothing. Changing `-t` on an app launched
 without `-n` starts an empty profile, and the old logins stay in the old directory. Pass `-n` for
-anything you log into.
+anything you log into. To reset an app, close its window and delete its `profile` directory. The
+next launch starts an empty profile.
 
 The name is sanitized before it becomes a directory. Every character that is not alphanumeric, `-`
 or `_` becomes `_`, outer underscores are trimmed, and the result is lowercased. Names that sanitize
