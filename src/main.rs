@@ -35,9 +35,9 @@ Without one the title or URL is the name, so a changed -t opens an empty
 profile. Launching a name that is already open focuses its window and does
 not open the URL.
 
-Each name's profile is one directory under $XDG_DATA_HOME/webviewrs, by
-default ~/.local/share/webviewrs, and webviewrs paths prints it. To reset an
-app, close its window and delete that directory. The next launch starts empty.
+Each name's profile is one directory, and webviewrs paths prints it on its
+profile line. To reset an app, close its window and delete that directory.
+The next launch starts empty.
 
 Examples:
   webviewrs -n rss -t RSS --dark https://rss.example.com
@@ -170,10 +170,15 @@ fn profile_dir_name(name: &str) -> String {
     format!("{}{suffix}", &sanitized[..end])
 }
 
+/// The directory name webviewrs keeps its files under, inside the platform's data, cache and
+/// runtime directories. A changed name moves every profile and socket, stranding their logins, so
+/// it is a literal rather than the package name.
+const APP_DIR_NAME: &str = "webviewrs";
+
 /// The directory holding every profile, under the platform's data directory. None where there is
 /// no data directory, as on Linux with neither `XDG_DATA_HOME` nor a home directory.
 fn profiles_dir() -> Option<PathBuf> {
-    dirs::data_dir().map(|dir| dir.join("webviewrs"))
+    dirs::data_dir().map(|dir| dir.join(APP_DIR_NAME))
 }
 
 /// Print a failure on stderr, under the program's name, and exit 1.
@@ -204,7 +209,7 @@ fn locate_profile(app_name: &str, name_source: &str) -> (PathBuf, PathBuf) {
 /// WebKit's HTTP cache, which every profile shares: `webviewrs` under the platform's cache
 /// directory. WebKit creates and fills it, so this only names it.
 fn webkit_cache_dir() -> Option<PathBuf> {
-    dirs::cache_dir().map(|dir| dir.join("webviewrs"))
+    dirs::cache_dir().map(|dir| dir.join(APP_DIR_NAME))
 }
 
 /// Print where an app keeps its profile, socket and cache, one labeled path a line. It resolves
@@ -229,7 +234,7 @@ fn create_profile_dir(data_dir: &Path) -> std::io::Result<()> {
 /// is named for the FNV-1a hash of the profile directory's path rather than for the app name.
 /// Hashing the whole path keeps a profile under another data directory from answering for this one.
 fn get_socket_path(profiles: &Path, data_dir: &Path) -> PathBuf {
-    let dir = dirs::runtime_dir().map_or_else(|| profiles.to_path_buf(), |runtime| runtime.join("webviewrs"));
+    let dir = dirs::runtime_dir().map_or_else(|| profiles.to_path_buf(), |runtime| runtime.join(APP_DIR_NAME));
     dir.join(format!("{}.sock", fnv1a_hex(data_dir.as_os_str().as_bytes())))
 }
 
