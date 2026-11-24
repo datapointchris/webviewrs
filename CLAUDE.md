@@ -64,6 +64,18 @@ A `target="_blank"` link or a `window.open` call goes to the default browser thr
 crate, and the handler refuses the window. wry drops these requests silently when no handler is
 set. The app never opens a second webview window.
 
+## A page's `close` message and a lost focus end the event loop
+
+wry's IPC handler turns the page message `close` into `UserEvent::Close`. With `--close-on-blur`,
+tao's `WindowEvent::Focused(false)` does the same. Both exits share the `CloseRequested` path, so
+each removes the socket the instance bound.
+
+- **`close` is a contract with every page that posts it.** Renaming it strands their close.
+- **wry drops a message from a page whose URL `http::Uri` refuses**, which covers every `file://`
+  page. So a desk check of the close serves its page from `127.0.0.1`.
+- **wry stays at 0.56.1 or later.** An earlier wry aborts the process on such a message rather
+  than dropping it, so any `file://` page that posts would abort the app.
+
 ## Every external effect has one door
 
 Anything that leaves the process goes through one named function in `src/main.rs`, and every

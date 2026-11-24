@@ -91,6 +91,26 @@ A `target="_blank"` link or a `window.open` call goes to the default browser thr
 crate, and the webview refuses the window. Without that handler, wry drops such a request silently
 and the link does nothing. The app never opens a second webview window.
 
+## A page closes its window by posting `close`
+
+```js
+window.ipc.postMessage('close');   // the page's own close, such as on Esc
+```
+
+The window then closes as it does when the window manager closes it, and its socket is removed.
+webviewrs ignores any other message. A page's `window.close()` does nothing.
+
+Only a page served over `http` or `https` can close its window. wry drops a message from a page whose
+address is not an HTTP URI, and every `file://` page is one. A local page closes its window when it
+is served from `127.0.0.1`.
+
+```bash
+webviewrs -n panel -t Panel --close-on-blur http://127.0.0.1:8080/   # closes when another window takes focus
+```
+
+`--close-on-blur` closes the window when it loses focus, as a popup panel does. It is off by default,
+so an app window stays open while you work in another.
+
 ## `--dark` asks for dark, and the page decides how
 
 On Linux, `--dark` sets GTK's dark-theme preference before the window opens. It also injects a

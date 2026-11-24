@@ -10,7 +10,7 @@ keywords = ["webview", "webkit", "desktop", "webapp"]
 categories = ["gui"]
 
 [dependencies]
-wry = "0.50"
+wry = "0.57"
 tao = "0.32"
 clap = { version = "4", features = ["derive", "wrap_help"] }
 dirs = "6"

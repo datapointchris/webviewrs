@@ -10,7 +10,7 @@ use tao::{
     event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy},
     window::WindowBuilder,
 };
-use wry::{WebContext, WebViewBuilder};
+use wry::{NewWindowResponse, WebContext, WebViewBuilder};
 
 #[cfg(gtk)]
 use gtk::prelude::*;
@@ -39,11 +39,17 @@ Each name's profile is one directory, and webviewrs paths prints it on its
 profile line. To reset an app, close its window and delete that directory.
 The next launch starts empty.
 
+A page closes its own window with window.ipc.postMessage('close'). Only a
+page served over http or https can, because a file:// page's message is
+dropped.
+
 Examples:
   webviewrs -n rss -t RSS --dark https://rss.example.com
       a site you log in to, kept under the name rss
   webviewrs https://example.com
       a one-off window, named for its URL
+  webviewrs -n panel -t Panel --close-on-blur http://127.0.0.1:8080/
+      a popup panel that closes when another window takes focus
   webviewrs paths -n rss
       where the name rss keeps its profile, socket and cache")]
 struct Args {
@@ -73,6 +79,10 @@ struct Args {
     /// Force dark mode
     #[arg(short, long)]
     dark: bool,
+
+    /// Close the window when it loses focus, as a popup panel does
+    #[arg(long)]
+    close_on_blur: bool,
 }
 
 #[derive(Subcommand)]
@@ -238,10 +248,14 @@ fn get_socket_path(profiles: &Path, data_dir: &Path) -> PathBuf {
     dir.join(format!("{}.sock", fnv1a_hex(data_dir.as_os_str().as_bytes())))
 }
 
+/// The message a page posts with `window.ipc.postMessage` to close its window.
+const CLOSE_MESSAGE: &str = "close";
+
 /// Custom event for the event loop
 #[derive(Debug, Clone)]
 enum UserEvent {
     FocusWindow,
+    Close,
 }
 
 /// Try to connect to an existing instance and request focus
@@ -352,6 +366,7 @@ fn main() {
 
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
     let proxy = event_loop.create_proxy();
+    let close_proxy = event_loop.create_proxy();
 
     // Start listening for other instances
     if let Some(listener) = listener {
@@ -368,11 +383,16 @@ fn main() {
             ))
         });
 
-    let mut builder = WebViewBuilder::with_web_context(&mut web_context)
+    let mut builder = WebViewBuilder::new_with_web_context(&mut web_context)
         .with_url(&url)
-        .with_new_window_req_handler(|url| {
+        .with_new_window_req_handler(|url, _features| {
             open_in_system_browser(&url);
-            false
+            NewWindowResponse::Deny
+        })
+        .with_ipc_handler(move |request| {
+            if request.body() == CLOSE_MESSAGE {
+                let _ = close_proxy.send_event(UserEvent::Close);
+            }
         });
 
     // Force dark mode if requested
@@ -412,23 +432,31 @@ fn main() {
         ))
     });
 
+    let close_on_blur = args.close_on_blur;
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
 
-        match event {
+        let close = match event {
             Event::UserEvent(UserEvent::FocusWindow) => {
                 window.set_focus();
+                false
             }
-            Event::WindowEvent {
+            Event::UserEvent(UserEvent::Close)
+            | Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
-            } => {
-                if let Some(path) = &owned_socket {
-                    remove_instance_socket(path);
-                }
-                *control_flow = ControlFlow::Exit;
+            } => true,
+            Event::WindowEvent {
+                event: WindowEvent::Focused(false),
+                ..
+            } => close_on_blur,
+            _ => false,
+        };
+        if close {
+            if let Some(path) = &owned_socket {
+                remove_instance_socket(path);
             }
-            _ => {}
+            *control_flow = ControlFlow::Exit;
         }
     });
 }
