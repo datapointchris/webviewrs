@@ -111,6 +111,9 @@ webviewrs -n panel -t Panel --close-on-blur http://127.0.0.1:8080/   # closes wh
 `--close-on-blur` closes the window when it loses focus, as a popup panel does. It is off by default,
 so an app window stays open while you work in another.
 
+A native `<select>` dropdown takes the window's focus when it opens. In a `--close-on-blur` window,
+opening one closes the window. A page meant for the flag draws its own dropdowns.
+
 ## `--dark` asks for dark, and the page decides how
 
 On Linux, `--dark` sets GTK's dark-theme preference before the window opens. It also injects a
