@@ -321,11 +321,15 @@ jobs:
           #
           # A hook that passes prints a line ending in Passed, and one with no
           # files to check prints Skipped, both exiting 0.
+          #
+          # Each hook's output goes under RUNNER_TEMP, which the runner empties
+          # before every job. A self-hosted runner keeps its TMPDIR between
+          # jobs, so a file there outlives the job that wrote it.
           cat > "$RUNNER_TEMP/run-hook" <<'SCRIPT'
           hook=$1
           export GOTOOLCHAIN=auto
           mapfile -t scope < "$RUNNER_TEMP/hook-scope"
-          output=$(mktemp)
+          output=$(mktemp -p "$RUNNER_TEMP")
           start=$EPOCHREALTIME
           uvx --python 3.13 pre-commit run "$hook" "${scope[@]}" --show-diff-on-failure 2>&1 | tee "$output"
           status=${PIPESTATUS[0]}
