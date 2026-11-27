@@ -77,6 +77,53 @@ repos:
     hooks:
       - id: check-json5
 
+# generated:youtube-door - Refuse a request to YouTube that goes around ypl's paced door
+  - repo: local
+    hooks:
+      - id: youtube-door
+        name: Refuse a request to YouTube outside ypl
+        # YouTube judges the home address by every request it sends, so one
+        # unpaced loop can get every read refused for hours. ypl sends each
+        # request one at a time from one place, whichever program asked. A repo
+        # other than ypl reaches YouTube through ypl's API, or runs yt-dlp as
+        # `ypl ytdlp -- <args>`. ypl's registry entry sets youtube_door, and ypl
+        # alone goes without this hook.
+        #
+        # It refuses the shape of a call rather than a mention, because prose
+        # about ypl's yt-dlp is ordinary in a repo that reads through ypl. A
+        # line is refused for any of these shapes:
+        #   a package or binary name quoted whole, or opened by a quote and
+        #   ended by a version specifier or by a space and an argument: an
+        #   argv, an import string, a dependency spec, a command line;
+        #   an import, from, use or extern crate line naming the module, or
+        #   python -m naming it;
+        #   yt-dlp or youtube-dl at a shell command's position, given an
+        #   argument, alone or behind assignments and wrappers such as
+        #   timeout, nice, sudo, env or xargs with their own flags;
+        #   the URL of one of YouTube's API hosts;
+        #   a YouTube client library: Google's Go package, the "youtube", "v3"
+        #   pair Google's Python build takes, google.youtube( in JavaScript, or
+        #   the kkdai/youtube Go module.
+        # An argument is a flag, a variable, a quote or a URL, so a message such
+        # as "yt-dlp failed" passes. Only a wrapper may stand before yt-dlp, so
+        # prose such as "the old yt-dlp --write-subs path" passes. A watch URL
+        # is data, so it passes. A whole-line comment passes, because a comment
+        # sends nothing.
+        #
+        # executable reaches the extensionless uv scripts, which identify tags
+        # with no language. json reaches package.json, which carries no tag of
+        # its own.
+        #
+        # $HOME is not usable here and no script is either: this has to run on
+        # any clone, so the whole check is inline. pre-commit execs entry without
+        # a shell, hence `bash -c … --`, after which "$@" is the files. A grep
+        # error exits 2, so a broken pattern fails the hook rather than passing
+        # every file.
+        entry: bash -c 'q="[\"'\''\`]"; a="([-{%\"'\''\`\\]|[$]|https?:)"; n="yt[-_]dlp|youtube[-_]dl|youtube[-_]transcript[-_]api|pytube"; v="[[:alnum:]_]+=[^[:space:]]*"; w="(${v}|(exec|then|do|else|if|elif|while|until|command|nohup|xargs|sudo|doas|env|uvx|timeout|nice|ionice|stdbuf|setsid|time|(uv|pipx|uv[[:space:]]+tool)[[:space:]]+run)([[:space:]]+(-[^[:space:]]+([[:space:]]+[^-[:space:]][^[:space:]]*)?|[0-9][^[:space:]]*|${v}))*)[[:space:]]+"; hits=$(grep -nHIE -e "\"(${n})\"|'\''(${n})'\''|\`(${n})\`" -e "${q}(${n})([[:space:]]*[<>=!~;[]|[[:space:]]+${a})" -e "^[[:space:]]*(import|from|use|extern crate)[[:space:]]+(${n})([^-_[:alnum:]]|$)" -e "(^|[[:space:]])-m[[:space:]]+(yt_dlp|youtube_dl)([^-_[:alnum:]]|$)" -e "(^|[;|&\`]|[$][(])[[:space:]]*(${w})*(yt-dlp|youtube-dl)[[:space:]]+${a}" -e "googleapis[.]com/youtube|youtubei/v1|youtube[.]com/api/timedtext|youtube[.]com/feeds/videos[.]xml|google[.]golang[.]org/api/youtube|github[.]com/kkdai/youtube|google[.]youtube[(]|${q}youtube${q}[[:space:]]*,[[:space:]]*${q}v[0-9]" -- "$@"); [ $? -gt 1 ] && exit 2; hits=$(printf "%s\n" "$hits" | grep -vE "^[^:]*:[0-9]+:[[:space:]]*(#|//|-- |/?[*])"); [ -z "$hits" ] && exit 0; printf "%s\n" "$hits"; echo "These lines send a request to YouTube around ypl, which paces every request to it from one place."; echo "Run yt-dlp as ypl ytdlp -- <args>, and read a video, its transcript or its audio through the ypl API."; exit 1' --
+        language: system
+        types: [text]
+        types_or: [go, python, shell, javascript, jsx, ts, tsx, rust, lua, pyproject, go-mod, json, executable]
+
 # generated:markdown - Markdown
   - repo: https://github.com/igorshubovych/markdownlint-cli
     rev: v0.47.0
